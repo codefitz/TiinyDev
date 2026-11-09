@@ -21,7 +21,11 @@
     background: radial-gradient(ellipse at 75% 0%, #2b1d45, transparent 60%);
   }
   main { max-width: 1180px; margin: auto; padding: clamp(20px, 5vw, 64px); }
-  header { margin-bottom: 32px; }
+  header {
+    position: relative; display: grid; grid-template-columns: 1fr auto;
+    align-items: center; column-gap: 12px; margin-bottom: 32px;
+  }
+  header > .eyebrow, header > p { grid-column: 1 / -1; }
   .eyebrow { color: var(--accent); font-size: .75rem; font-weight: 800; letter-spacing: .18em; }
   h1 { font-size: clamp(2.4rem, 6vw, 4.25rem); letter-spacing: -.055em; line-height: 1; margin: 12px 0; }
   h2 { font-size: 1.15rem; margin: 0 0 18px; }
@@ -32,6 +36,20 @@
   .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
   label { display: block; font-size: .875rem; font-weight: 650; margin-bottom: 14px; }
   .fields label { margin: 0; }
+  .ratios { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; margin: 0 0 14px; border: 0; }
+  .ratios legend { margin-bottom: 6px; font-size: .875rem; font-weight: 650; }
+  .ratios label {
+    display: grid; justify-items: center; gap: 4px; margin: 0; padding: 8px 12px;
+    border: 1px solid var(--border); border-radius: 10px; cursor: pointer;
+  }
+  .ratios label:has(:checked) { border-color: var(--accent); color: var(--accent); }
+  .ratio-shape { display: grid; place-items: center; width: 36px; height: 32px; }
+  .ratio-shape::before {
+    content: ""; width: var(--shape-width); height: var(--shape-height);
+    border: 2px solid currentColor; border-radius: 3px;
+  }
+  #generation-warning { color: var(--accent); }
+  #generation-timing { font-variant-numeric: tabular-nums; }
   input, textarea, select, button { font: inherit; }
   input:not([type=checkbox]):not([type=range]), textarea, select {
     width: 100%; margin-top: 6px; border: 1px solid var(--border); border-radius: 10px;
@@ -47,15 +65,30 @@
     background: var(--accent); color: #211435; font-weight: 800; cursor: pointer;
   }
   input[type=range] { display: block; width: 100%; accent-color: var(--accent); }
+  .connection { grid-area: 2 / 2; margin: 0; border: 0; padding: 0; }
+  .connection > summary { color: var(--muted); white-space: nowrap; }
+  .connection > summary:hover, .connection[open] > summary { color: var(--accent); }
+  .connection > .panel {
+    position: absolute; z-index: 1; right: 0; width: min(100%, 360px);
+    box-shadow: 0 8px 24px #101018aa;
+  }
+  .reference-picker { position: relative; border: 1px dashed #79639e; }
+  .reference-picker:focus-within { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .reference-picker:has(input:hover) { border-color: var(--accent); }
+  .reference-picker input[type=file] {
+    position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer;
+  }
+  #preview-title { margin-top: 24px; }
+  #generation-stats { overflow-wrap: anywhere; }
   .secondary { background: #302542; color: var(--accent); }
   button:disabled { opacity: .6; cursor: wait; }
   .stage {
-    display: grid; place-items: center; aspect-ratio: 16 / 9; border-radius: 13px; overflow: hidden;
+    display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); place-items: center; aspect-ratio: 16 / 9; border-radius: 13px; overflow: hidden;
     background: radial-gradient(ellipse at 50% 70%, #382455, #12111b 75%); text-align: center;
   }
-  .empty { padding: 20px; }
+  .empty { padding: 8px; }
   .play { display: grid; place-items: center; width: 54px; height: 54px; margin: 0 auto 12px; border: 1px solid #79639e; border-radius: 50%; color: var(--accent); }
-  video { width: 100%; height: 100%; min-height: 0; object-fit: contain; background: #100f16; }
+  .stage :is(img, video) { width: 100%; height: 100%; min-height: 0; object-fit: contain; background: #100f16; }
   progress { width: 100%; accent-color: var(--accent); }
   a { color: var(--accent); }
   [hidden] { display: none !important; }
@@ -69,6 +102,18 @@
     <div class="eyebrow">TIINY POCKET LAB</div>
     <h1>Tiiny Video</h1>
     <p class="muted">Describe a scene and bring it to life on your Tiiny.</p>
+    <details class="connection">
+      <summary>API settings</summary>
+      <div class="panel">
+        <label>Video API base URL<input form="generator" name="endpoint" type="url" value="http://openai.api.tiiny/v1" required></label>
+        <label>Video API key<input form="generator" name="key" type="password" required autocomplete="off"></label>
+        <label><input form="generator" name="shared_api" type="checkbox" checked> Use the video API connection for prompt refinement</label>
+        <div id="text-connection" hidden>
+          <label>Text API base URL<input form="generator" name="text_endpoint" type="text" inputmode="url" value="http://openai.api.tiiny/v1" disabled></label>
+          <label>Text API key<input form="generator" name="text_key" type="password" autocomplete="off" disabled></label>
+        </div>
+      </div>
+    </details>
   </header>
 
   <div class="workspace">
@@ -81,17 +126,25 @@
         <summary>Refine prompt with a text model</summary>
         <div>
           <label>Loaded text model ID<input name="text_model" placeholder="Model ID from TiinyOS"></label>
-          <label>Text API base URL<input name="text_endpoint" type="url" value="http://openai.api.tiiny/v1"></label>
           <button type="button" class="secondary" id="refine">Refine prompt</button>
           <p id="refine-status" class="muted" role="status"></p>
         </div>
       </details>
-      <label>Video preset
+      <fieldset class="ratios">
+        <legend>Aspect ratio</legend>
+        <label><input type="radio" name="ratio" value="landscape" checked>
+          <span class="ratio-shape" style="--shape-width: 32px; --shape-height: 18px" aria-hidden="true"></span>Landscape
+        </label>
+        <label><input type="radio" name="ratio" value="portrait">
+          <span class="ratio-shape" style="--shape-width: 18px; --shape-height: 32px" aria-hidden="true"></span>Portrait
+        </label>
+      </fieldset>
+      <label>Video size
         <select name="preset">
-          <option value="832x480" selected>Landscape · 832 × 480</option>
-          <option value="480x832">Portrait · 480 × 832</option>
-          <option value="1344x768">Large landscape · 1344 × 768</option>
-          <option value="768x1344">Large portrait · 768 × 1344</option>
+          <option value="832x480" data-ratio="landscape" selected>Landscape · 832 × 480</option>
+          <option value="1344x768" data-ratio="landscape">Large landscape · 1344 × 768</option>
+          <option value="480x832" data-ratio="portrait">Portrait · 480 × 832</option>
+          <option value="768x1344" data-ratio="portrait">Large portrait · 768 × 1344</option>
           <option value="custom">Custom</option>
         </select>
       </label>
@@ -124,17 +177,27 @@
           <label><input name="enable_audio" type="checkbox"> Generate audio</label>
         </div>
       </details>
-      <details open>
-        <summary>Tiiny connection</summary>
-        <div>
-          <label>API base URL<input name="endpoint" type="url" value="http://api.tiiny/v1" required></label>
-          <label>API key<input name="key" type="password" required autocomplete="off"></label>
-        </div>
-      </details>
+      <p class="muted"><small id="generation-estimate"></small></p>
       <button type="submit">Generate video</button>
+      <p id="generation-warning" role="status" hidden>Thinking… Do not refresh or close this page while the video is generating.</p>
     </form>
 
     <section class="panel" aria-labelledby="preview-title">
+      <h2>Reference image <small>(optional)</small></h2>
+      <div class="stage reference-picker">
+        <input form="generator" name="input_reference" type="file" aria-label="Choose reference image" accept="image/png,image/jpeg,image/webp" aria-describedby="reference-note">
+        <img id="reference-preview" alt="Selected reference image" hidden>
+        <div class="empty" id="reference-empty">
+          <span class="play" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 16V3m-5 5 5-5 5 5M4 16v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/>
+            </svg>
+          </span>
+          <strong>Click to upload or drag and drop</strong>
+          <p class="muted" id="reference-note">PNG, JPEG or WebP</p>
+        </div>
+      </div>
+      <button type="button" class="secondary" id="clear-reference" hidden>Remove image</button>
       <h2 id="preview-title">Preview</h2>
       <div class="stage">
         <div class="empty" id="empty">
@@ -146,6 +209,8 @@
       </div>
       <p class="muted" id="status" role="status">Ready to generate</p>
       <progress id="progress" max="100" aria-label="Generation progress" hidden></progress>
+      <p id="generation-timing" class="muted" hidden></p>
+      <p id="generation-stats" class="muted" hidden></p>
       <div id="download-panel" hidden>
         <a id="download" download>Download MP4</a>
         <p class="muted"><small>Saved to your browser’s download location.</small></p>
@@ -162,16 +227,93 @@
   const empty = document.querySelector("#empty");
   const download = document.querySelector("#download");
 
-  const { preset, width, height, seed, fixed_seed: fixedSeed, prompt } = form.elements;
+  const { preset, ratio, width, height, seconds, steps, seed, fixed_seed: fixedSeed, prompt } = form.elements;
+  const reference = form.elements.input_reference;
+  const clearReference = document.querySelector("#clear-reference");
+  const referencePreview = document.querySelector("#reference-preview");
+  const referenceEmpty = document.querySelector("#reference-empty");
+  let referenceUrl;
+  function updateReference() {
+    if (referenceUrl) URL.revokeObjectURL(referenceUrl);
+    const image = reference.files[0];
+    referenceUrl = image ? URL.createObjectURL(image) : undefined;
+    if (referenceUrl) referencePreview.src = referenceUrl;
+    else referencePreview.removeAttribute("src");
+    referencePreview.hidden = clearReference.hidden = !image;
+    referenceEmpty.hidden = Boolean(image);
+  }
+  reference.addEventListener("change", updateReference);
+  clearReference.addEventListener("click", () => {
+    reference.value = "";
+    updateReference();
+    reference.focus();
+  });
+
+  const connection = document.querySelector(".connection");
+  connection.addEventListener("invalid", () => { connection.open = true; }, true);
+
+  const { shared_api: sharedApi, text_endpoint: textEndpoint, text_key: textKey } = form.elements;
+  function updateConnection() {
+    document.querySelector("#text-connection").hidden = sharedApi.checked;
+    textEndpoint.disabled = textKey.disabled = sharedApi.checked;
+  }
+  sharedApi.addEventListener("change", updateConnection);
+  updateConnection();
+
+  const stats = document.querySelector("#generation-stats");
   const refine = document.querySelector("#refine");
   const refineStatus = document.querySelector("#refine-status");
 
-  preset.addEventListener("change", () => {
-    if (preset.value !== "custom") [width.value, height.value] = preset.value.split("x");
-  });
-  for (const dimension of [width, height]) {
-    dimension.addEventListener("input", () => { preset.value = "custom"; });
+  const estimate = document.querySelector("#generation-estimate");
+  const warning = document.querySelector("#generation-warning");
+  const timing = document.querySelector("#generation-timing");
+
+  function roughSeconds() {
+    // ponytail: scale one 459-second repo sample linearly; use device timings when more runs are available.
+    return 459 * (width.valueAsNumber * height.valueAsNumber / (832 * 480)) *
+      (seconds.valueAsNumber / 4) * (Number(steps.value) / 4);
   }
+
+  function formatTime(totalSeconds) {
+    const whole = Math.floor(totalSeconds);
+    return Math.floor(whole / 60) + "m " + (whole % 60) + "s";
+  }
+
+  const turboModel = "lightx2v/MiniMax-H3-Turbo";
+  const turboSizes = Array.from(preset.options)
+    .filter((option) => option.value !== "custom")
+    .map((option) => option.value);
+
+  function updateEstimate() {
+    const duration = roughSeconds();
+    estimate.textContent = form.elements.model.value.trim() === turboModel &&
+      turboSizes.includes(width.valueAsNumber + "x" + height.valueAsNumber) &&
+      [width, height, seconds].every((field) => field.validity.valid) && Number.isFinite(duration)
+      ? "Rough generation estimate · ~" + Math.max(1, Math.round(duration / 60)) + " min (scaled from one recorded run)"
+      : "Generation estimate unavailable for these settings.";
+  }
+
+  function applyPreset() {
+    const selectedRatio = preset.selectedOptions[0].dataset.ratio;
+    for (const choice of ratio) choice.checked = choice.value === selectedRatio;
+    if (preset.value !== "custom") [width.value, height.value] = preset.value.split("x");
+    updateEstimate();
+  }
+  preset.addEventListener("change", applyPreset);
+  for (const choice of ratio) {
+    choice.addEventListener("change", () => {
+      preset.value = { landscape: "832x480", portrait: "480x832" }[choice.value];
+      applyPreset();
+    });
+  }
+  for (const dimension of [width, height]) {
+    dimension.addEventListener("input", () => {
+      preset.value = "custom";
+      for (const choice of ratio) choice.checked = false;
+    });
+  }
+  form.addEventListener("input", updateEstimate);
+  updateEstimate();
   fixedSeed.addEventListener("change", () => { seed.disabled = !fixedSeed.checked; });
   seed.addEventListener("input", () => { document.querySelector("#seed-value").value = seed.value; });
 
@@ -199,7 +341,7 @@
     const fields = new FormData(form);
     const original = prompt.value;
     const model = fields.get("text_model").trim();
-    const key = fields.get("key").trim();
+    const key = fields.get(sharedApi.checked ? "key" : "text_key").trim();
     if (!original.trim() || !model || !key) {
       refineStatus.textContent = "Enter a prompt, a loaded text model ID and your Tiiny API key.";
       return;
@@ -207,7 +349,7 @@
     refine.disabled = button.disabled = true;
     refineStatus.textContent = "Refining prompt…";
     try {
-      const api = connect(fields.get("text_endpoint"), key);
+      const api = connect(fields.get(sharedApi.checked ? "endpoint" : "text_endpoint"), key);
       const response = await api("/chat/completions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -244,7 +386,7 @@
     const request = {
       prompt: fields.get("prompt").trim(),
       model: fields.get("model").trim(),
-      size: fields.get("width") + "x" + fields.get("height"),
+      size: width.valueAsNumber + "x" + height.valueAsNumber,
       seconds: Number(fields.get("seconds")),
       steps: Number(fields.get("steps")),
       enable_audio: fields.has("enable_audio"),
@@ -253,9 +395,26 @@
       status.textContent = "Enter a prompt and model.";
       return;
     }
+    if (request.model === turboModel && !turboSizes.includes(request.size)) {
+      status.textContent = "MiniMax H3 Turbo supports " + turboSizes.join(", ") + ". Choose a supported video size.";
+      return;
+    }
     if (fields.has("fixed_seed")) request.seed = Number(fields.get("seed"));
+    const image = reference.files[0];
+    if (image && (!image.size || !["image/png", "image/jpeg", "image/webp"].includes(image.type))) {
+      status.textContent = "Choose a non-empty PNG, JPEG or WebP reference image.";
+      return;
+    }
 
     refine.disabled = button.disabled = true;
+    warning.hidden = timing.hidden = stats.hidden = false;
+    stats.textContent = "Waiting for Tiiny job status…";
+    const startedAt = performance.now();
+    function updateElapsed() {
+      timing.textContent = "Elapsed " + formatTime((performance.now() - startedAt) / 1000);
+    }
+    updateElapsed();
+    const timer = setInterval(updateElapsed, 1000);
     progress.hidden = false;
     progress.removeAttribute("value");
     let jobId;
@@ -269,12 +428,19 @@
         throw new Error("Tiiny is already generating a video. Try again once it finishes.");
       }
 
-      status.textContent = "Submitting generation…";
-      let job = await (await api("/videos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(request),
-      })).json();
+      status.textContent = image ? "Uploading reference and submitting generation…" : "Submitting generation…";
+      const submission = { method: "POST" };
+      if (image) {
+        const body = new FormData();
+        for (const [name, value] of Object.entries(request)) body.append(name, String(value));
+        body.append("input_reference", image);
+        submission.body = body;
+      } else {
+        submission.headers = { "Content-Type": "application/json" };
+        submission.body = JSON.stringify(request);
+      }
+      const submittedAt = performance.now();
+      let job = await (await api("/videos", submission)).json();
       if (!job.id) throw new Error("Tiiny did not return a job ID. Check the Tiiny queue before retrying.");
       jobId = job.id;
       const path = "/videos/" + encodeURIComponent(jobId);
@@ -284,15 +450,22 @@
           throw new Error(job.error?.message || "Generation ended with status " + job.status + ".");
         }
         if (Date.now() >= deadline) throw new Error("Monitoring timed out. The job may still be running.");
-        const percent = typeof job.progress === "number" ? job.progress : null;
+        const percent = Number.isFinite(job.progress) && job.progress >= 0 && job.progress <= 100 ? job.progress : null;
         if (percent === null) progress.removeAttribute("value");
         else progress.value = percent;
         status.textContent = (job.status === "queued" ? "Queued" : "Generating") +
           (percent === null ? "…" : " · " + percent + "%");
+        stats.textContent = [
+          "Job status: " + (job.status || "unknown"),
+          "Last Tiiny update: " + new Date().toLocaleTimeString(),
+          job.frames != null && job.frames + " frames",
+          job.fps != null && job.fps + " FPS",
+        ].filter(Boolean).join(" · ");
         await new Promise((resolve) => setTimeout(resolve, 5000));
         job = await (await api(path)).json();
       }
 
+      const elapsed = Math.round((performance.now() - submittedAt) / 1000);
       status.textContent = "Loading your video…";
       const clip = await (await api(path + "/content")).blob();
       if (download.href) URL.revokeObjectURL(download.href);
@@ -301,14 +474,27 @@
       download.download = encodeURIComponent(jobId) + ".mp4";
       preview.hidden = document.querySelector("#download-panel").hidden = false;
       empty.hidden = true;
+      stats.textContent = [
+        job.size,
+        job.seconds != null && job.seconds + " s clip",
+        job.fps != null && job.fps + " FPS",
+        job.frames != null && job.frames + " frames",
+        request.steps + " steps requested",
+        elapsed + " s from submission to completion",
+        (clip.size / (1024 * 1024)).toFixed(1) + " MiB",
+        jobId,
+      ].filter(Boolean).join(" · ");
+      stats.hidden = false;
       status.textContent = "Video ready";
     } catch (error) {
       const message = error instanceof TypeError
         ? "Could not reach Tiiny. Check the API address, network and browser cross-origin access."
         : error.message;
+      stats.hidden = true;
       status.textContent = message + (jobId ? " Job ID: " + jobId : "");
     } finally {
-      progress.hidden = true;
+      clearInterval(timer);
+      warning.hidden = timing.hidden = progress.hidden = true;
       refine.disabled = button.disabled = false;
     }
   });
