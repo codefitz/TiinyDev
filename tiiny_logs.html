@@ -1,0 +1,3080 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <title>Tiiny Model Logs</title>
+  <style>
+  :root {
+    color-scheme: dark;
+    font: 16px/1.55 system-ui, sans-serif;
+    color: #f4f2ff;
+    background: #101018;
+    --muted: #b2aec4;
+    --border: #393449;
+    --accent: #cebbff;
+    --panel: #1a1825;
+    --well: #12111b;
+    --inset: #16141f;
+    --violet: #b5a0e8;
+    --ok: #9bd3b0;
+    --warn: #d9b380;
+    --bad: #e08f9a;
+    --shadow: 0 8px 24px #101018aa;
+    --row-height: 34px;
+  }
+
+  * { box-sizing: border-box; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: radial-gradient(ellipse at 75% 0%, #2b1d45, transparent 60%);
+  }
+  input, textarea, select, button { font: inherit; }
+  input, textarea, select {
+    width: 100%; margin-top: 6px;
+    border: 1px solid var(--border); border-radius: 10px;
+    background: #12111b; color: inherit; padding: 9px 11px;
+  }
+  input::placeholder { color: #7d7690; }
+  input[type=range] { display: block; width: 100%; accent-color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  [hidden] { display: none !important; }
+  a { color: var(--accent); }
+  progress { width: 100%; accent-color: var(--accent); }
+
+  main {
+    max-width: 1600px;
+    margin: auto;
+    padding: clamp(20px, 5vw, 64px);
+  }
+
+  header {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    column-gap: 12px;
+    margin-bottom: 32px;
+  }
+  header > .eyebrow, header > p { grid-column: 1 / -1; }
+  .eyebrow { color: var(--accent); font-size: .75rem; font-weight: 800; letter-spacing: .18em; }
+  h1 { font-size: clamp(2.4rem, 6vw, 4.25rem); letter-spacing: -.055em; line-height: 1; margin: 12px 0; }
+  h2 { font-size: 1.15rem; margin: 0 0 18px; }
+  p { margin: 8px 0; }
+  .muted, small { color: var(--muted); }
+
+  .header-actions { grid-area: 2 / 2; display: flex; align-items: center; gap: 12px; }
+  .connection { margin: 0; border: 0; padding: 0; }
+  .connection > summary { color: var(--muted); white-space: nowrap; }
+  .connection > summary:hover, .connection[open] > summary { color: var(--accent); }
+  .connection > .panel {
+    position: absolute; z-index: 40; right: 0;
+    width: min(100%, 380px);
+    box-shadow: 0 8px 24px #101018aa;
+  }
+  .connection-state {
+    display: inline-flex; align-items: center; gap: 7px;
+    margin-left: 10px; color: var(--muted);
+    font-size: .75rem; font-weight: 650;
+  }
+  .state-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #57506b; box-shadow: 0 0 0 3px rgba(87, 80, 107, .15);
+  }
+  .connection-state.ok .state-dot { background: var(--ok); box-shadow: 0 0 0 3px rgba(155, 211, 176, .15); }
+  .connection-state.error .state-dot { background: var(--bad); box-shadow: 0 0 0 3px rgba(224, 143, 154, .15); }
+  .connection-state.loading .state-dot { background: var(--warn); animation: pulse 1.1s infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+
+  .panel { background: #1a1825; border: 1px solid var(--border); border-radius: 20px; padding: clamp(16px, 3vw, 26px); min-width: 0; }
+  .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  label { display: block; font-size: .875rem; font-weight: 650; margin-bottom: 14px; }
+  .fields label { margin: 0; }
+  .compact-control { font-size: .8125rem; padding: 7px 10px; margin-top: 5px; }
+
+  button {
+    width: 100%; border: 0; border-radius: 11px; padding: 11px;
+    background: var(--accent); color: #211435; font-weight: 800; cursor: pointer;
+    transition: background .15s ease, border-color .15s ease, color .15s ease;
+  }
+  button:disabled { opacity: .6; cursor: wait; }
+  .btn { border: 1px solid var(--border); background: #12111b; color: inherit; font-weight: 700; }
+  .btn.primary { border: 0; background: var(--accent); color: #211435; font-weight: 800; }
+  .btn.primary:hover:not(:disabled) { background: #ddd0ff; }
+  .btn.ghost { width: auto; background: transparent; color: var(--muted); padding: 8px 14px; border-radius: 10px; }
+  .btn.ghost:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+  .btn.small { width: auto; padding: 6px 11px; border-radius: 9px; font-size: .75rem; line-height: 1.3; }
+  .btn.live-on { background: #302542; border-color: var(--accent); color: var(--accent); }
+  .btn.new-entries { background: #302542; border-color: var(--accent); color: var(--accent); }
+  .btn.danger { border-color: #7a4048; color: #ffc4c9; }
+  .secondary { background: #302542; color: var(--accent); }
+  .secondary:hover:not(:disabled) { background: #3a2c50; }
+
+  details { margin: 18px 0; border-top: 1px solid var(--border); padding-top: 12px; }
+  summary { cursor: pointer; color: var(--accent); font-size: .875rem; }
+  details > div { margin-top: 12px; }
+
+  #workspace {
+    display: grid;
+    grid-template-columns: minmax(260px, 1fr) minmax(0, 2.5fr);
+    gap: 20px;
+    align-items: start;
+  }
+
+  .sessions-pane, .results-pane {
+    min-width: 0;
+    background: #1a1825;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+  }
+
+  .details-pane {
+    position: fixed; top: 12px; right: 12px; bottom: 12px;
+    width: min(420px, 92vw);
+    z-index: 30;
+    display: flex; flex-direction: column;
+    background: #1a1825;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    box-shadow: 0 18px 50px #101018cc;
+    overflow: hidden;
+  }
+
+  .pane-header {
+    min-height: 52px;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    background: #16141f;
+  }
+  .pane-title { margin: 0; font-size: 1.1rem; font-weight: 750; letter-spacing: -.01em; }
+  .pane-count { color: var(--muted); font: 11px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+  .session-tools {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    background: #16141f;
+  }
+  .session-tools label { margin: 0; }
+  .session-tools .wide { grid-column: 1 / -1; }
+
+  .session-list {
+    max-height: min(640px, 58vh);
+    overflow: auto;
+  }
+
+  .session-card {
+    width: 100%; display: block; text-align: left; cursor: pointer;
+    padding: 11px 14px;
+    border: 0; border-radius: 0;
+    border-bottom: 1px solid rgba(57, 52, 73, .55);
+    border-left: 3px solid transparent;
+    background: transparent; color: inherit; font-weight: 400;
+  }
+  .session-card:hover { background: rgba(206, 187, 255, .05); }
+  .session-card.selected { background: rgba(206, 187, 255, .09); border-left-color: var(--accent); }
+  .session-card.service { box-shadow: inset 3px 0 0 rgba(181, 160, 232, .55); }
+  .session-card.service.selected { border-left-color: var(--violet); }
+  .session-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 680; }
+  .session-meta, .session-foot {
+    margin-top: 6px; display: flex; align-items: center; gap: 6px; min-width: 0;
+    color: var(--muted);
+    font: 10.5px/1.25 ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .session-foot { justify-content: space-between; }
+  .session-reason { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .badge {
+    display: inline-flex; align-items: center;
+    border: 1px solid var(--border); border-radius: 999px;
+    padding: 1px 7px;
+    font-size: 9.5px; line-height: 1.4;
+    text-transform: uppercase; letter-spacing: .06em;
+  }
+  .badge.service { color: #d9ceff; border-color: #6e6095; }
+  .badge.running, .badge.starting { color: var(--ok); border-color: #3c6b52; }
+  .badge.failed { color: #ff9aa4; border-color: #7a4048; }
+  .badge.finalized, .badge.stopped { color: var(--muted); }
+
+  .sessions-footer {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 10px 14px;
+    border-top: 1px solid var(--border);
+    background: #16141f;
+  }
+
+  .modebar {
+    min-height: 52px;
+    display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    background: #16141f;
+  }
+  .mode-tabs { display: flex; gap: 8px; }
+  .tab {
+    padding: 8px 14px;
+    border: 1px solid var(--border); border-radius: 10px;
+    color: var(--muted); background: transparent; cursor: pointer;
+    font-size: .8125rem; font-weight: 700;
+  }
+  .tab:hover { color: var(--accent); border-color: var(--accent); }
+  .tab.active { border-color: var(--accent); color: var(--accent); }
+  .mode-context {
+    min-width: 0; flex: 1;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: var(--muted); font-size: .8125rem;
+  }
+
+  .filter-panel {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 14px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    background: #16141f;
+  }
+  .filter-field { min-width: 0; }
+  .filter-field label { margin: 0; }
+  .filter-field.span-2 { grid-column: span 2; }
+  .filter-actions { grid-column: 1 / -1; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
+  .timezone-note { margin-right: auto; color: var(--muted); font: 10.5px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .dirty-note { color: var(--warn); font-size: .75rem; }
+
+  .error-banner {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 16px;
+    border-bottom: 1px solid #6e4350;
+    background: rgba(224, 143, 154, .08);
+    color: #ffbec5;
+  }
+  .error-banner span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+
+  .export-strip {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 16px;
+    border-bottom: 1px solid #6b5540;
+    background: rgba(217, 179, 128, .07);
+    color: #e5c896;
+    font: 10.5px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .export-strip span { flex: 1; }
+
+  .results-toolbar {
+    min-height: 50px;
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 16px;
+    border-bottom: 1px solid var(--border);
+    background: #16141f;
+  }
+  .results-summary {
+    flex: 1; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: var(--muted);
+    font: 11px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  .column-head {
+    height: 30px;
+    display: grid;
+    grid-template-columns: 168px minmax(120px, 180px) 88px 78px minmax(110px, 170px) minmax(240px, 1fr);
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    background: #16141f;
+    color: var(--muted);
+    font: 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .column-head span { padding: 0 8px; border-right: 1px solid rgba(57, 52, 73, .45); }
+
+  .results-viewport {
+    position: relative;
+    height: min(640px, 62vh);
+    min-height: 340px;
+    overflow: auto;
+    background:
+      linear-gradient(90deg, transparent 0 167px, rgba(206, 187, 255, .05) 168px, transparent 169px),
+      #14121c;
+  }
+
+  .empty-state {
+    min-height: 240px;
+    display: grid; justify-items: center; align-content: center;
+    padding: 30px;
+    text-align: center;
+  }
+  .empty-state::before {
+    content: "\25B6";
+    display: grid; place-items: center;
+    width: 54px; height: 54px; margin-bottom: 14px;
+    border: 1px solid #79639e; border-radius: 50%;
+    color: var(--accent); font-size: 18px;
+  }
+  .empty-state strong { display: block; margin-bottom: 6px; font-size: 1rem; }
+  .empty-state span { display: block; max-width: 470px; color: var(--muted); font-size: .8125rem; line-height: 1.55; }
+
+  .virtual-stage { position: relative; width: 100%; min-width: 850px; }
+  .virtual-rows { position: absolute; inset: 0 0 auto 0; }
+  .log-row {
+    position: absolute; left: 0; right: 0; height: var(--row-height);
+    display: grid;
+    grid-template-columns: 168px minmax(120px, 180px) 88px 78px minmax(110px, 170px) minmax(240px, 1fr);
+    align-items: center;
+    border-bottom: 1px solid rgba(57, 52, 73, .42);
+    border-left: 3px solid transparent;
+    color: #cfcbe0;
+    cursor: default;
+    font: 10.5px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    contain: layout paint style;
+  }
+  .log-row:hover { background: rgba(206, 187, 255, .05); }
+  .log-row.selected { background: rgba(206, 187, 255, .09); border-left-color: var(--accent); }
+  .log-row.level-error { border-left-color: var(--bad); }
+  .log-row.level-warning { border-left-color: var(--warn); }
+  .log-row.source-manager:not(.level-error):not(.level-warning) { border-left-color: var(--accent); }
+  .log-cell {
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    padding: 0 8px; border-right: 1px solid rgba(57, 52, 73, .28);
+  }
+  .cell-time { color: #b9aee0; }
+  .cell-model { color: #a8a1bd; }
+  .cell-source { color: var(--violet); }
+  .cell-level.error { color: #ff9aa4; }
+  .cell-level.warning { color: #e5c896; }
+  .cell-level.info { color: #9bd3b0; }
+  .cell-event { color: #9a93b3; }
+  .cell-message { color: #e9e6f5; }
+
+  .raw-stage {
+    margin: 0; padding: 14px 16px;
+    color: #d6d1e6;
+    font: 11.5px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+    white-space: pre-wrap; overflow-wrap: anywhere;
+    tab-size: 4;
+  }
+  .raw-stage .raw-head { display: block; color: #b9aee0; }
+  .raw-stage .raw-head.error { color: #ff9aa4; }
+  .raw-stage .raw-head.warning { color: #e5c896; }
+  .raw-stage .raw-body {
+    display: block; margin: 0 0 10px; padding-left: 10px;
+    border-left: 2px solid var(--border);
+    color: #e0dcef;
+  }
+  .raw-stage .raw-body.selected { border-left-color: var(--accent); background: rgba(206, 187, 255, .07); }
+  .results-viewport.raw { background: #14121c; }
+  .results-viewport.raw .load-footer { min-width: 0; }
+
+  .load-footer {
+    min-width: 850px; min-height: 52px;
+    display: grid; place-items: center;
+    border-top: 1px solid var(--border);
+    background: #16141f;
+  }
+
+  .details-content { flex: 1; min-height: 0; overflow: auto; padding: 16px; }
+  .detail-section { margin-bottom: 16px; }
+  .detail-label {
+    margin-bottom: 5px; color: var(--muted);
+    font: 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: .1em; text-transform: uppercase;
+  }
+  .detail-value { color: #e9e6f5; font-size: .8125rem; line-height: 1.55; overflow-wrap: anywhere; }
+  .detail-value.mono, .detail-pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .detail-pre {
+    margin: 0; padding: 10px 12px;
+    border: 1px solid var(--border); border-radius: 10px;
+    background: #12111b; color: #d6d1e6;
+    font-size: 10.5px; line-height: 1.5;
+    white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .warning-box {
+    border: 1px solid #6b5540; border-radius: 10px;
+    background: rgba(217, 179, 128, .08);
+    color: #e5c896;
+    padding: 10px 12px;
+    font-size: .75rem; line-height: 1.45;
+  }
+
+  .toast-region {
+    position: fixed; right: 14px; bottom: 14px; z-index: 60;
+    display: grid; gap: 8px;
+    pointer-events: none;
+  }
+  .toast {
+    max-width: 420px;
+    padding: 10px 14px;
+    border: 1px solid var(--border); border-radius: 12px;
+    background: #1f1b2c;
+    box-shadow: 0 8px 24px #101018aa;
+    color: inherit; font-size: .8125rem;
+    animation: toast-in .18s ease-out;
+  }
+  .toast.error { border-color: #7a4048; color: #ffbec5; }
+  @keyframes toast-in { from { transform: translateY(5px); opacity: 0; } }
+
+  .sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  @media (max-width: 750px) {
+    #workspace { grid-template-columns: 1fr; }
+    header { grid-template-columns: 1fr; }
+    .header-actions { grid-column: 1; flex-wrap: wrap; }
+    .connection > .panel { position: static; width: 100%; box-shadow: none; }
+    .filter-panel { grid-template-columns: 1fr; }
+    .filter-field.span-2 { grid-column: auto; }
+    .results-toolbar { flex-wrap: wrap; }
+    .results-summary { flex-basis: 100%; order: 2; }
+    .column-head { grid-template-columns: 160px 82px 72px minmax(240px, 1fr); }
+    .column-head span:nth-child(2), .column-head span:nth-child(5) { display: none; }
+    .log-row { grid-template-columns: 160px 82px 72px minmax(240px, 1fr); }
+    .log-row .cell-model, .log-row .cell-event { display: none; }
+    .results-viewport { background-image: none; }
+  }
+
+
+  .data-loading { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding: 12px 16px; border: 1px solid var(--accent); border-radius: 12px; background: #302542; color: var(--accent); font-size: .875rem; }
+  .loading-spinner { width: 16px; height: 16px; flex-shrink: 0; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: loading-spin .8s linear infinite; }
+  @keyframes loading-spin { to { transform: rotate(360deg); } }
+  .dashboard { margin-bottom: 24px; }
+  .dashboard > summary { font-size: 1.05rem; font-weight: 750; }
+  .dashboard-cards, .dashboard-charts { display: grid; gap: 14px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .dashboard-card { padding: 16px; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; min-width: 0; }
+  .dashboard-card strong { display: block; font-size: 1.8rem; color: var(--accent); }
+  .dashboard-card span, .dashboard-note { color: var(--muted); font-size: .8rem; }
+  .dashboard-charts { grid-template-columns: .8fr .8fr .7fr 1.2fr .7fr 2fr; gap: 8px; margin-top: 14px; padding: 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; }
+  .history-query { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) auto auto; align-items: end; gap: 10px; margin-top: 14px; }
+  .history-query label { margin: 0; }
+  .history-query button { margin-bottom: 2px; }
+  .dashboard-chart { min-width: 0; }
+  .dashboard-chart label { margin: 0; }
+  .dashboard-chart select { height: 220px; padding: 5px; }
+  .dashboard-chart option { padding: 6px; }
+  .dashboard-chart h3 { margin: 0 0 10px; font-size: .95rem; }
+  @media (max-width: 1100px) { .history-query { grid-template-columns: repeat(2, minmax(0, 1fr)); } .dashboard-charts { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (max-width: 650px) { .dashboard-charts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 750px) { .dashboard-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+  .activity-pies { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  @media (max-width: 900px) { .activity-pies { grid-template-columns: 1fr; } }
+  .model-usage { margin-top: 14px; padding: 16px; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; }
+  .model-usage h3 { margin: 0 0 6px; }
+  .model-pie-layout { display: flex; align-items: center; flex-wrap: wrap; gap: 20px; }
+  :is(#modelPie, #levelPie) { width: 230px; max-width: 100%; }
+  :is(#modelPie, #levelPie) svg { display: block; width: 100%; height: auto; }
+  :is(#modelPie, #levelPie) [role=button] { cursor: pointer; stroke: var(--panel); stroke-width: 1; }
+  :is(#modelPie, #levelPie) [role=button]:focus, :is(#modelPie, #levelPie) [aria-pressed=true] { stroke: white; stroke-width: 3; outline: none; }
+  :is(:is(#modelPie, #levelPie)Legend, #levelPieLegend) { display: flex; flex: 1; min-width: 200px; flex-direction: column; gap: 6px; max-height: 240px; overflow: auto; }
+  .model-legend-item { display: flex; align-items: center; gap: 8px; text-align: left; overflow-wrap: anywhere; }
+  .model-legend-item[aria-pressed=true] { border-color: var(--accent); background: #302542; }
+  .model-swatch { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">TIINY POCKET LAB</div>
+    <h1>Tiiny Model Logs</h1>
+    <p class="muted">Inspect the flight recorder for your Tiiny's model runs.</p>
+    <div class="header-actions">
+      <details class="connection">
+        <summary>Service connection<span id="connectionState" class="connection-state" aria-live="polite"><span class="state-dot" aria-hidden="true"></span><span id="connectionText">Disconnected</span></span></summary>
+        <div class="panel">
+          <label for="baseUrl">Service base URL<input id="baseUrl" class="control" inputmode="url" autocomplete="url" placeholder="http://192.168.2.231"></label>
+          <p class="muted"><small>Use the Tiiny service address. A trailing /v1 or /api/v1 is removed automatically.</small></p>
+          <label for="authToken">Bearer token<input id="authToken" class="control" type="password" autocomplete="off"></label>
+          <div class="fields">
+            <button id="connectBtn" class="btn primary" type="button">Connect</button>
+            <button id="refreshBtn" class="btn secondary" type="button" disabled>Refresh</button>
+          </div>
+        </div>
+      </details>
+    </div>
+  </header>
+
+  <details id="dashboard" class="dashboard" open>
+    <summary>Overview</summary>
+    <button id="dashboardResetBtn" class="btn small" type="button">Reset selection</button>
+    <button id="loadHistoryBtn" class="btn small" type="button" disabled>Load older history</button>
+    <button id="dashboardDiagnosticsBtn" class="btn small" type="button">Copy diagnostics</button>
+    <div id="dataLoadingStatus" class="data-loading" role="status" aria-live="polite" hidden><span class="loading-spinner" aria-hidden="true"></span><span id="dataLoadingText"></span></div>
+    <p id="dashboardScope" class="dashboard-note"></p>
+    <div id="dashboardCards" class="dashboard-cards"></div>
+    <p class="dashboard-note">Search device history across all sessions. Dates, model and log level are sent to the Tiiny; the first matching page loads. Use Load older history for additional pages.</p>
+    <div class="history-query" aria-label="Query log history">
+        <div class="filter-field">
+          <label for="startTs">From date<input id="startTs" class="compact-control" type="date"></label>
+        </div>
+        <div class="filter-field">
+          <label for="endTs">To date<input id="endTs" class="compact-control" type="date"></label>
+        </div>
+        <div class="filter-field">
+          <label for="modelFilter">Model<input id="modelFilter" class="compact-control" list="queryModels" placeholder="All models / enter model ID"></label>
+        </div>
+        <div class="filter-field">
+          <label for="level">Log level
+            <select id="level" class="compact-control">
+              <option value="">all levels</option>
+              <option value="debug">debug</option>
+              <option value="info">info</option>
+              <option value="warning">warning</option>
+              <option value="error">error</option>
+            </select>
+          </label>
+        </div>
+      <button id="historyApplyBtn" class="btn small primary" type="button" disabled>Search logs</button>
+      <button id="historyClearBtn" class="btn small" type="button" disabled>Clear query</button>
+      <datalist id="queryModels"></datalist>
+    </div>
+    <div class="activity-pies">
+    <section class="model-usage" aria-labelledby="modelUsageTitle">
+      <h3 id="modelUsageTitle">Model activity in selected period</h3>
+      <p id="modelPieScope" class="dashboard-note"></p>
+      <p class="dashboard-note">Share of recorded runs per model. Period filters use run creation time; log level applies to entries only. Click a slice or model to filter the entry selection; click again or choose All models to clear.</p>
+      <div class="model-pie-layout"><div id="modelPie"></div><div id="modelPieLegend"></div></div>
+      <button id="modelPieClearBtn" class="btn small" type="button">All models</button>
+    </section>
+    <section class="model-usage" aria-labelledby="levelUsageTitle">
+      <h3 id="levelUsageTitle">Log levels</h3>
+      <p id="levelPieScope" class="dashboard-note"></p>
+      <p class="dashboard-note">Loaded entries in the selected period and model. Click a level to filter entries; click again to clear.</p>
+      <div class="model-pie-layout"><div id="levelPie"></div><div id="levelPieLegend"></div></div>
+      <button id="levelPieClearBtn" class="btn small" type="button">All levels</button>
+    </section>
+    </div>
+    <p class="dashboard-note">Date/model choices come from loaded runs and logs; entry counts and levels use loaded logs. Load older history or search dates for more entries.</p>
+    <details><summary>Last device log request</summary><p id="deviceQueryInfo" class="dashboard-note">No log request yet.</p></details>
+    <div class="dashboard-charts">
+      <section class="dashboard-chart"><h3><label for="monthSelection">Month</label></h3><select id="monthSelection" size="8"></select></section>
+      <section class="dashboard-chart"><h3><label for="daySelection">Day</label></h3><select id="daySelection" size="8"></select></section>
+      <section class="dashboard-chart"><h3><label for="hourSelection">Hour</label></h3><select id="hourSelection" size="8"></select></section>
+      <section class="dashboard-chart"><h3><label for="modelSelection">Entries by model</label></h3><select id="modelSelection" size="8"></select></section>
+      <section class="dashboard-chart"><h3><label for="levelSelection">Log level</label></h3><select id="levelSelection" size="8"></select></section>
+      <section class="dashboard-chart"><h3><label for="entrySelection">Entry selection</label></h3><select id="entrySelection" size="8"></select><p id="entrySelectionCount" class="dashboard-note"></p><button id="entrySelectionPrevious" class="btn small" type="button">Previous</button> <button id="entrySelectionNext" class="btn small" type="button">Next</button></section>
+    </div>
+    <p class="dashboard-note">Choose a month, day, local hour, model and log level, then select an entry to open its details. All severity levels are included. Selections browse the current loaded results without changing the query filters.</p>
+  </details>
+
+  <div id="workspace" class="workspace">
+    <aside id="sessionsPane" class="sessions-pane">
+      <div class="pane-header">
+        <h2 class="pane-title">Recorded runs</h2>
+        <button id="allSessionsBtn" class="btn small" type="button" disabled>All sessions</button>
+        <span id="sessionsCount" class="pane-count">0 loaded</span>
+      </div>
+      <div class="session-tools">
+        <label class="wide" for="sessionSearch">Search loaded sessions<input id="sessionSearch" class="compact-control" placeholder="Search model, ID, reason…"></label>
+        <label for="sessionStatus">Session status
+          <select id="sessionStatus" class="compact-control">
+            <option value="">all statuses</option>
+            <option value="running">running</option>
+            <option value="starting">starting</option>
+            <option value="stopped">stopped</option>
+            <option value="failed">failed</option>
+            <option value="finalized">finalized</option>
+          </select>
+        </label>
+        <label for="sessionType">Session type
+          <select id="sessionType" class="compact-control">
+            <option value="">all run types</option>
+            <option value="model">model runs</option>
+            <option value="service">service runs</option>
+          </select>
+        </label>
+        <label class="wide" for="serviceHistory">Service run history
+          <select id="serviceHistory" class="compact-control" title="Choose whether older service runs remain visible">
+            <option value="all" selected>service history: all runs</option>
+            <option value="latest">service history: latest only</option>
+          </select>
+        </label>
+      </div>
+      <div id="sessionList" class="session-list" aria-label="Model log sessions">
+        <div class="empty-state"><div><strong>No connection</strong><span>Enter the service address and connect to inspect recorded runs.</span></div></div>
+      </div>
+      <div class="sessions-footer">
+        <span id="sessionsFooterText" class="pane-count">Not loaded</span>
+        <button id="loadMoreSessionsBtn" class="btn small" type="button" disabled>Load more runs</button>
+      </div>
+    </aside>
+
+    <section class="results-pane">
+      <div class="pane-header">
+        <h2 class="pane-title">Log entries</h2>
+      </div>
+      <div class="modebar">
+        <div class="mode-tabs" role="tablist" aria-label="Log view">
+          <button id="sessionsTab" class="tab active" type="button" role="tab" aria-selected="true">Session</button>
+          <button id="timelineTab" class="tab" type="button" role="tab" aria-selected="false">Timeline</button>
+        </div>
+        <div id="modeContext" class="mode-context">Select a recorded run to inspect its logs.</div>
+        <button id="liveBtn" class="btn small" type="button" aria-pressed="false" disabled>Live off</button>
+        <button id="toggleFiltersBtn" class="btn small ghost" type="button" aria-expanded="true">Filters</button>
+      </div>
+
+      <div id="filterPanel" class="filter-panel">
+        <div class="filter-field span-2">
+          <label for="keyword">Message or event contains<input id="keyword" class="compact-control" placeholder="Traceback, timeout, request ID…"></label>
+        </div>
+        <div class="filter-field">
+          <label for="timelineSessionFilter">Exact session ID<input id="timelineSessionFilter" class="compact-control" placeholder="Timeline only"></label>
+        </div>
+        <div class="filter-field">
+          <label for="source">Source
+            <select id="source" class="compact-control">
+              <option value="">all sources</option>
+              <option value="manager">manager</option>
+              <option value="container">container</option>
+              <option value="service">service</option>
+            </select>
+          </label>
+        </div>
+        <div class="filter-field">
+          <label for="event">Exact event<input id="event" class="compact-control" placeholder="model.log.finalized"></label>
+        </div>
+        <div class="filter-field">
+          <label for="quickRange">Quick range
+            <select id="quickRange" class="compact-control">
+              <option value="">custom / all time</option>
+              <option value="86400">today and previous day</option>
+              <option value="today">today</option>
+              <option value="yesterday">yesterday</option>
+              <option value="604800">last 7 days</option>
+            </select>
+          </label>
+        </div>
+        <div class="filter-field">
+          <label for="order">Session order
+            <select id="order" class="compact-control">
+              <option value="desc" selected>newest first</option>
+              <option value="asc">oldest first</option>
+            </select>
+          </label>
+        </div>
+        <div class="filter-actions">
+          <span id="timezoneNote" class="timezone-note"></span>
+          <span id="dirtyNote" class="dirty-note" hidden>Filters changed — Apply to query</span>
+          <button id="clearFiltersBtn" class="btn small ghost" type="button">Clear</button>
+          <button id="applyFiltersBtn" class="btn small primary" type="button" disabled>Apply filters</button>
+        </div>
+      </div>
+      <div id="primaryError" class="error-banner" hidden>
+        <span id="primaryErrorText"></span>
+        <button id="copyDiagnosticsBtn" class="btn small ghost" type="button">Copy diagnostics</button>
+        <button id="retryBtn" class="btn small" type="button">Retry</button>
+      </div>
+
+      <div id="exportStrip" class="export-strip" hidden>
+        <span id="exportText">Export starting…</span>
+        <button id="cancelExportBtn" class="btn small" type="button">Cancel export</button>
+      </div>
+
+      <div class="results-toolbar">
+        <div id="resultsSummary" class="results-summary">No query has run.</div>
+        <button id="viewModeBtn" class="btn small" type="button" title="Switch between the compact table and full raw text">Full text</button>
+        <button id="newEntriesBtn" class="btn small new-entries" type="button" hidden>Show new</button>
+        <button id="downloadRawBtn" class="btn small" type="button" disabled>Raw NDJSON</button>
+        <button id="exportNdjsonBtn" class="btn small" type="button" disabled>Export NDJSON</button>
+        <button id="exportCsvBtn" class="btn small" type="button" disabled>Export CSV</button>
+      </div>
+
+      <div id="columnHead" class="column-head" aria-hidden="true">
+        <span>Local time</span><span>Model</span><span>Source</span><span>Level</span><span>Event</span><span>Message preview</span>
+      </div>
+
+      <div id="resultsViewport" class="results-viewport" tabindex="0" aria-label="Log entries">
+        <div id="emptyState" class="empty-state"><div><strong>No logs loaded</strong><span>Select a session or switch to Timeline, choose a time range, and apply the query.</span><button id="showAllSessionEntriesBtn" class="btn small" type="button" hidden>Show all entries in this session</button></div></div>
+        <div id="virtualStage" class="virtual-stage" hidden>
+          <div id="virtualRows" class="virtual-rows"></div>
+        </div>
+        <pre id="rawStage" class="raw-stage" hidden></pre>
+        <div id="loadFooter" class="load-footer" hidden>
+          <button id="loadMoreEntriesBtn" class="btn small" type="button">Load older entries</button>
+          <span id="loadSentinel" aria-hidden="true"></span>
+        </div>
+      </div>
+    </section>
+
+    <aside id="detailsPane" class="details-pane" hidden aria-label="Log entry details">
+      <div class="pane-header">
+        <h2 class="pane-title">Entry details</h2>
+        <div>
+          <button id="copyEntryBtn" class="btn small ghost" type="button">Copy JSON</button>
+          <button id="closeDetailsBtn" class="btn small" type="button" aria-label="Close details">Close</button>
+        </div>
+      </div>
+      <div id="detailsContent" class="details-content"></div>
+    </aside>
+  </div>
+</main>
+
+  <div id="toastRegion" class="toast-region" aria-live="polite"></div>
+
+<script>
+'use strict';
+
+const MAX_ENTRIES = 100000;
+const LIVE_MAX_PAGES = 100;
+const PREFS_KEY = 'tiinyModelLogsViewer.v3';
+const TOKEN_KEY = 'tiinyModelLogsViewer.token';
+const RETRY_STATUSES = new Set([429, 502, 503, 504]);
+const $ = id => document.getElementById(id);
+
+const els = {
+  baseUrl: $('baseUrl'), authToken: $('authToken'), connectBtn: $('connectBtn'), refreshBtn: $('refreshBtn'),
+  connectionState: $('connectionState'), connectionText: $('connectionText'), workspace: $('workspace'),
+  sessionsPane: $('sessionsPane'),
+  sessionSearch: $('sessionSearch'), sessionStatus: $('sessionStatus'), sessionType: $('sessionType'),
+  serviceHistory: $('serviceHistory'), sessionList: $('sessionList'), sessionsCount: $('sessionsCount'),
+  sessionsFooterText: $('sessionsFooterText'), loadMoreSessionsBtn: $('loadMoreSessionsBtn'),
+  sessionsTab: $('sessionsTab'), timelineTab: $('timelineTab'), modeContext: $('modeContext'), liveBtn: $('liveBtn'),
+  toggleFiltersBtn: $('toggleFiltersBtn'), filterPanel: $('filterPanel'), keyword: $('keyword'),
+  modelFilter: $('modelFilter'), timelineSessionFilter: $('timelineSessionFilter'), source: $('source'), level: $('level'),
+  event: $('event'), quickRange: $('quickRange'), startTs: $('startTs'), endTs: $('endTs'), order: $('order'),
+  timezoneNote: $('timezoneNote'), dirtyNote: $('dirtyNote'), clearFiltersBtn: $('clearFiltersBtn'),
+  applyFiltersBtn: $('applyFiltersBtn'), primaryError: $('primaryError'), primaryErrorText: $('primaryErrorText'),
+  copyDiagnosticsBtn: $('copyDiagnosticsBtn'), retryBtn: $('retryBtn'), exportStrip: $('exportStrip'),
+  exportText: $('exportText'), cancelExportBtn: $('cancelExportBtn'), resultsSummary: $('resultsSummary'),
+  newEntriesBtn: $('newEntriesBtn'), downloadRawBtn: $('downloadRawBtn'), exportNdjsonBtn: $('exportNdjsonBtn'),
+  exportCsvBtn: $('exportCsvBtn'), resultsViewport: $('resultsViewport'), emptyState: $('emptyState'),
+  virtualStage: $('virtualStage'), virtualRows: $('virtualRows'), loadFooter: $('loadFooter'),
+  columnHead: $('columnHead'), rawStage: $('rawStage'), viewModeBtn: $('viewModeBtn'),
+  loadMoreEntriesBtn: $('loadMoreEntriesBtn'), loadSentinel: $('loadSentinel'), detailsPane: $('detailsPane'),
+  detailsContent: $('detailsContent'), copyEntryBtn: $('copyEntryBtn'), closeDetailsBtn: $('closeDetailsBtn'),
+  toastRegion: $('toastRegion')
+};
+
+const state = {
+  mode: 'sessions',
+  view: 'table',
+  dashboard: { month: '', day: '', hour: '', model: '', level: '', page: 0 },
+  connectionStatus: { text: 'Disconnected', kind: '' },
+  connection: { baseUrl: '', token: '', connected: false },
+  filters: null,
+  entryFiltersDirty: false,
+  sessionFiltersDirty: false,
+  sessions: {
+    items: [], nextCursor: null, loading: false, exhausted: false, selectedId: null,
+    repeatedCursors: new Set(), queryKey: '', responseInfo: null
+  },
+  entries: {
+    items: [], ids: new Set(), nextCursor: null, loading: false, exhausted: false,
+    queryKey: '', selectedId: null, newCount: 0, repeatedCursors: new Set(), capped: false
+  },
+  requests: new Map(),
+  requestGenerations: new Map(),
+  live: { enabled: false, timer: 0, failures: 0, running: false },
+  export: { running: false, controller: null, count: 0, startedAt: 0 },
+  raw: { running: false, controller: null, bytes: 0 },
+  virtual: { rowHeight: 34, overscan: 12, start: 0, end: 0, raf: 0 },
+  historyRun: null,
+  defaultEntries: null,
+  retryAction: null,
+  lastError: null
+};
+
+class ApiError extends Error {
+  constructor(message, { status = 0, endpoint = '', detail = '', code = '' } = {}) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.endpoint = endpoint;
+    this.detail = detail;
+    this.code = code;
+  }
+}
+
+function safeStorage(storage, action, key, value) {
+  try {
+    if (action === 'get') return storage.getItem(key);
+    if (action === 'set') storage.setItem(key, value);
+    if (action === 'remove') storage.removeItem(key);
+  } catch (_) {}
+  return null;
+}
+
+function normalizeBaseUrl(value) {
+  const text = String(value || '').trim().replace(/\/+$/, '');
+  if (!text) throw new Error('Service base URL is required.');
+  let parsed;
+  try { parsed = new URL(text); } catch (_) { throw new Error('Service base URL is not a valid URL.'); }
+  if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Service URL must use http or https.');
+  if (parsed.search || parsed.hash) throw new Error('Service base URL must not include a query or fragment.');
+  // Log routes already include /api/v1; accept the inference API URL too.
+  parsed.pathname = parsed.pathname.replace(/\/+(?:api\/)?v1$/i, '');
+  return parsed.href.replace(/\/+$/, '');
+}
+
+function currentToken() {
+  return String(els.authToken.value || '').trim().replace(/^Bearer\s+/i, '');
+}
+
+function beginSlot(name) {
+  const previous = state.requests.get(name);
+  if (previous) previous.controller.abort(new DOMException('Superseded', 'AbortError'));
+  const controller = new AbortController();
+  const generation = (state.requestGenerations.get(name) || 0) + 1;
+  state.requestGenerations.set(name, generation);
+  state.requests.set(name, { controller, generation });
+  return { controller, generation };
+}
+
+function abortSlot(name) {
+  const slot = state.requests.get(name);
+  if (slot) slot.controller.abort(new DOMException('Cancelled', 'AbortError'));
+  state.requests.delete(name);
+}
+
+function isCurrentSlot(name, generation) {
+  return state.requests.get(name)?.generation === generation;
+}
+
+function abortAllRequests() {
+  for (const name of [...state.requests.keys()]) abortSlot(name);
+  state.sessions.loading = false;
+  state.entries.loading = false;
+  state.live.running = false;
+}
+
+function delay(ms, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(signal.reason || new DOMException('Aborted', 'AbortError'));
+    const timer = setTimeout(resolve, ms);
+    signal?.addEventListener('abort', () => {
+      clearTimeout(timer);
+      reject(signal.reason || new DOMException('Aborted', 'AbortError'));
+    }, { once: true });
+  });
+}
+
+async function readErrorBody(response) {
+  const text = await response.text();
+  if (!text) return { message: response.statusText || `HTTP ${response.status}`, detail: '', code: '' };
+  try {
+    const body = JSON.parse(text);
+    const detail = body.detail ?? body.error ?? body.message ?? text;
+    if (typeof detail === 'object') {
+      return {
+        message: detail.message || detail.code || `HTTP ${response.status}`,
+        detail: JSON.stringify(detail),
+        code: detail.code || ''
+      };
+    }
+    return { message: String(detail), detail: String(detail), code: body.code || '' };
+  } catch (_) {
+    return { message: text.slice(0, 500), detail: text.slice(0, 2000), code: '' };
+  }
+}
+
+async function apiResponse(path, {
+  signal,
+  timeoutMs = 30000,
+  retries = 2,
+  retryStatuses = RETRY_STATUSES,
+  baseUrl = state.connection.baseUrl,
+  token = state.connection.token,
+  method = 'GET',
+  headers: headerInit,
+  body,
+  consume = response => response
+} = {}) {
+  const root = normalizeBaseUrl(baseUrl);
+  const endpoint = root + path;
+  let lastError;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    if (signal?.aborted) throw signal.reason || new DOMException('Aborted', 'AbortError');
+    const controller = new AbortController();
+    let timedOut = false;
+    const onAbort = () => controller.abort(signal.reason || new DOMException('Aborted', 'AbortError'));
+    signal?.addEventListener('abort', onAbort, { once: true });
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      controller.abort(new DOMException('Timed out', 'TimeoutError'));
+    }, timeoutMs);
+
+    try {
+      const headers = new Headers(headerInit || {});
+      if (token) headers.set('Authorization', `Bearer ${token}`);
+      const response = await fetch(endpoint, { method, headers, body, signal: controller.signal });
+      if (retryStatuses.has(response.status) && attempt < retries) {
+        await response.body?.cancel().catch(() => {});
+        await delay(Math.min(500 * (2 ** attempt), 3000), signal);
+        continue;
+      }
+      if (!response.ok) {
+        const info = await readErrorBody(response);
+        throw new ApiError(`${response.status}: ${info.message}`, {
+          status: response.status, endpoint: path, detail: info.detail, code: info.code
+        });
+      }
+      return await consume(response, controller.signal);
+    } catch (error) {
+      if (signal?.aborted) throw signal.reason || error;
+      if (timedOut) {
+        lastError = new ApiError(`Request timed out after ${Math.round(timeoutMs / 1000)}s`, {
+          endpoint: path, code: 'TIMEOUT'
+        });
+      } else if (error instanceof ApiError) {
+        throw error;
+      } else if (error?.name === 'AbortError') {
+        throw error;
+      } else {
+        lastError = new ApiError('Network request failed. Check the address, service availability, and CORS policy.', {
+          endpoint: path, detail: String(error?.message || error), code: 'NETWORK'
+        });
+      }
+      if (attempt >= retries) throw lastError;
+      await delay(Math.min(500 * (2 ** attempt), 3000), signal);
+    } finally {
+      clearTimeout(timeout);
+      signal?.removeEventListener('abort', onAbort);
+    }
+  }
+  throw lastError || new ApiError('Request failed', { endpoint: path });
+}
+
+async function apiJson(path, options = {}) {
+  return apiResponse(path, {
+    ...options,
+    consume: async response => {
+      try { return await response.json(); }
+      catch (_) { throw new ApiError('The service returned invalid JSON.', { endpoint: path, code: 'INVALID_JSON' }); }
+    }
+  });
+}
+
+function setConnectionStatus(text, kind = '') {
+  state.connectionStatus = { text, kind };
+  els.connectionText.textContent = text;
+  els.connectionState.className = `connection-state ${kind}`.trim();
+}
+
+function toast(message, kind = '') {
+  const node = document.createElement('div');
+  node.className = `toast ${kind}`.trim();
+  node.textContent = message;
+  els.toastRegion.appendChild(node);
+  setTimeout(() => node.remove(), 4200);
+}
+
+function hidePrimaryError() {
+  els.primaryError.hidden = true;
+  state.lastError = null;
+  state.retryAction = null;
+}
+
+function describeError(error) {
+  if (error?.name === 'AbortError') return 'Request cancelled.';
+  if (error instanceof ApiError) {
+    if (error.status === 401) return 'Unauthorized. Check the bearer token.';
+    if (error.status === 403) return 'Forbidden. This token cannot read model logs.';
+    if (error.status === 404) return `Not found: ${error.endpoint}. Check the Tiiny service address and that its firmware supports the model-logs API.`;
+    if (error.status === 422) return `${'Invalid query parameters'}: ${error.detail || error.message}`;
+    return error.message;
+  }
+  return String(error?.message || error || 'Unknown error');
+}
+
+function showPrimaryError(error, retryAction = null) {
+  if (error?.name === 'AbortError') return;
+  if (!els.primaryError.hidden && state.lastError) {
+    if (state.lastError === error) return;
+    toast(`${'Additional error'}: ${describeError(error)}`, 'error');
+    return;
+  }
+  state.lastError = error;
+  state.retryAction = retryAction;
+  els.primaryErrorText.textContent = describeError(error);
+  els.retryBtn.hidden = !retryAction;
+  els.primaryError.hidden = false;
+}
+
+function localInputToUtc(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) throw new Error(`${'Invalid local date/time'}: ${value}`);
+  return date.toISOString();
+}
+
+function dateInputToUtc(value, endOfDay = false) {
+  if (!value) return '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error('Choose a valid date.');
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) throw new Error('Choose a valid date.');
+  // Local calendar boundaries also handle daylight-saving days correctly.
+  if (endOfDay) { date.setDate(date.getDate() + 1); date.setMilliseconds(-1); }
+  return date.toISOString();
+}
+
+function pad2(value) { return String(value).padStart(2, '0'); }
+
+function toLocalInputValue(date) {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}T${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`;
+}
+
+const localTimestampFormatter = new Intl.DateTimeFormat(undefined, {
+  year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', second: '2-digit',
+  fractionalSecondDigits: 3, hour12: false
+});
+
+function formatLocalTimestamp(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? String(value) : localTimestampFormatter.format(date);
+}
+
+function formatBytes(value) {
+  const bytes = Number(value || 0);
+  if (!Number.isFinite(bytes) || bytes < 0) return '—';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KiB`;
+  if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MiB`;
+  return `${(bytes / 1024 ** 3).toFixed(2)} GiB`;
+}
+
+function csvCell(value) {
+  let text = value == null ? '' : (typeof value === 'object' ? JSON.stringify(value) : String(value));
+  if (/^[\x00-\x20]*[=+\-@]/.test(text)) text = `'${text}`;
+  if (/[",\r\n]/.test(text)) text = `"${text.replace(/"/g, '""')}"`;
+  return text;
+}
+
+function readFilters() {
+  return {
+    q: els.keyword.value.trim(),
+    modelId: els.modelFilter.value.trim(),
+    sessionId: els.timelineSessionFilter.value.trim(),
+    sessionType: els.sessionType.value,
+    sessionStatus: els.sessionStatus.value,
+    serviceHistory: els.serviceHistory.value || 'all',
+    source: els.source.value,
+    level: els.level.value,
+    event: els.event.value.trim(),
+    startLocal: els.startTs.value,
+    endLocal: els.endTs.value,
+    startTs: dateInputToUtc(els.startTs.value),
+    endTs: dateInputToUtc(els.endTs.value, true),
+    order: els.order.value === 'asc' ? 'asc' : 'desc'
+  };
+}
+
+function validateFilters(filters) {
+  if (filters.startTs && filters.endTs && new Date(filters.startTs) > new Date(filters.endTs)) {
+    throw new Error('The start time must be before or equal to the end time.');
+  }
+  return filters;
+}
+
+function appendParam(params, name, value) {
+  if (value !== undefined && value !== null && value !== '') params.set(name, String(value));
+}
+
+function buildSessionParams(cursor = null, filters = readFilters()) {
+  const params = new URLSearchParams();
+  appendParam(params, 'model_id', filters.modelId);
+  appendParam(params, 'status', filters.sessionStatus);
+  appendParam(params, 'session_type', filters.sessionType);
+  appendParam(params, 'service_history', filters.serviceHistory || 'all');
+  params.set('limit', '500');
+  appendParam(params, 'cursor', cursor);
+  return params;
+}
+
+function buildTimelineParams(filters, cursor = null) {
+  const params = new URLSearchParams();
+  appendParam(params, 'model_id', filters.modelId);
+  appendParam(params, 'session_id', filters.sessionId);
+  appendParam(params, 'session_type', filters.sessionType);
+  appendParam(params, 'source', filters.source);
+  appendParam(params, 'level', filters.level);
+  appendParam(params, 'event', filters.event);
+  appendParam(params, 'start_ts', filters.startTs);
+  appendParam(params, 'end_ts', filters.endTs);
+  appendParam(params, 'q', filters.q);
+  params.set('limit', '1000');
+  appendParam(params, 'cursor', cursor);
+  return params;
+}
+
+function buildEntryParams(filters, cursor = null) {
+  const params = new URLSearchParams();
+  params.set('order', filters.order === 'asc' ? 'asc' : 'desc');
+  appendParam(params, 'source', filters.source);
+  appendParam(params, 'level', filters.level);
+  appendParam(params, 'event', filters.event);
+  appendParam(params, 'start_ts', filters.startTs);
+  appendParam(params, 'end_ts', filters.endTs);
+  appendParam(params, 'q', filters.q);
+  params.set('limit', '5000');
+  appendParam(params, 'cursor', cursor);
+  return params;
+}
+
+function preferenceSnapshot() {
+  const filters = readFilters();
+  return {
+    baseUrl: els.baseUrl.value.trim(),
+    mode: state.mode,
+    filters: {
+      q: filters.q, modelId: filters.modelId, sessionId: filters.sessionId,
+      sessionType: filters.sessionType, sessionStatus: filters.sessionStatus,
+      serviceHistory: filters.serviceHistory, source: filters.source, level: filters.level,
+      event: filters.event, startLocal: filters.startLocal, endLocal: filters.endLocal,
+      order: filters.order
+    },
+    filtersOpen: !els.filterPanel.hidden,
+    view: state.view
+  };
+}
+
+function persistPreferences() {
+  safeStorage(localStorage, 'set', PREFS_KEY, JSON.stringify(preferenceSnapshot()));
+  const token = currentToken();
+  if (token) safeStorage(sessionStorage, 'set', TOKEN_KEY, token);
+  else safeStorage(sessionStorage, 'remove', TOKEN_KEY);
+}
+
+function restorePreferences() {
+  let prefs = {};
+  try { prefs = JSON.parse(safeStorage(localStorage, 'get', PREFS_KEY) || '{}'); } catch (_) {}
+  els.baseUrl.value = prefs.baseUrl || '';
+  els.authToken.value = safeStorage(sessionStorage, 'get', TOKEN_KEY) || '';
+  const filters = prefs.filters || {};
+  els.keyword.value = filters.q || '';
+  els.modelFilter.value = filters.modelId || '';
+  els.timelineSessionFilter.value = filters.sessionId || '';
+  els.sessionType.value = filters.sessionType || '';
+  els.sessionStatus.value = filters.sessionStatus || '';
+  els.serviceHistory.value = filters.serviceHistory || 'all';
+  els.source.value = filters.source || '';
+  els.level.value = filters.level || '';
+  els.event.value = filters.event || '';
+  els.startTs.value = (filters.startLocal || '').slice(0, 10);
+  els.endTs.value = (filters.endLocal || '').slice(0, 10);
+  els.order.value = filters.order === 'asc' ? 'asc' : 'desc';
+  if (prefs.filtersOpen === false) {
+    els.filterPanel.hidden = true;
+    els.toggleFiltersBtn.setAttribute('aria-expanded', 'false');
+  }
+  state.mode = prefs.mode === 'timeline' ? 'timeline' : 'sessions';
+  state.view = prefs.view === 'raw' ? 'raw' : 'table';
+}
+
+function updateDirtyState() {
+  els.dirtyNote.hidden = !(state.entryFiltersDirty || state.sessionFiltersDirty);
+}
+
+function markEntryFiltersDirty() {
+  state.entryFiltersDirty = true;
+  updateDirtyState();
+}
+
+function markSessionFiltersDirty() {
+  state.sessionFiltersDirty = true;
+  updateDirtyState();
+}
+
+function markSharedFiltersDirty() {
+  state.entryFiltersDirty = true;
+  state.sessionFiltersDirty = true;
+  updateDirtyState();
+}
+
+function clearFilters() {
+  resetDashboardNavigation();
+  els.keyword.value = '';
+  els.modelFilter.value = '';
+  els.timelineSessionFilter.value = '';
+  els.sessionStatus.value = '';
+  els.sessionType.value = '';
+  els.serviceHistory.value = 'all';
+  els.source.value = '';
+  els.level.value = '';
+  els.event.value = '';
+  els.startTs.value = '';
+  els.endTs.value = '';
+  els.quickRange.value = '';
+  els.order.value = 'desc';
+  els.sessionSearch.value = '';
+  markSharedFiltersDirty();
+  renderSessions();
+}
+
+function applyQuickRange(value) {
+  if (!value) return;
+  const now = new Date();
+  let start;
+  let end = now;
+  if (value === 'today') {
+    start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+  } else if (value === 'yesterday') {
+    start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0);
+    end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+  } else {
+    start = new Date(now.getTime() - Number(value) * 1000);
+  }
+  els.startTs.value = toLocalInputValue(start).slice(0, 10);
+  els.endTs.value = toLocalInputValue(end).slice(0, 10);
+  markEntryFiltersDirty();
+}
+
+function sessionQueryKey(filters) {
+  return JSON.stringify({
+    root: state.connection.baseUrl,
+    modelId: filters.modelId,
+    status: filters.sessionStatus,
+    type: filters.sessionType,
+    history: filters.serviceHistory
+  });
+}
+
+async function loadSessions({ reset = true } = {}) {
+  if (!state.connection.baseUrl) return;
+  if (state.sessions.loading && !reset) return;
+  if (state.sessions.loading && reset) {
+    abortSlot('sessions');
+    state.sessions.loading = false;
+  }
+  const filters = validateFilters(readFilters());
+  const queryKey = sessionQueryKey(filters);
+  if (!reset && queryKey !== state.sessions.queryKey) reset = true;
+  if (!reset && state.sessions.exhausted) return;
+  const cursor = reset ? null : state.sessions.nextCursor;
+  if (!reset && cursor == null) return;
+  if (cursor != null && state.sessions.repeatedCursors.has(String(cursor))) {
+    throw new Error('Session pagination stopped because the service repeated a cursor.');
+  }
+  if (reset) {
+    state.sessionFiltersDirty = false;
+    updateDirtyState();
+  }
+
+  const { controller, generation } = beginSlot('sessions');
+  state.sessions.loading = true;
+  renderSessionsMeta();
+  els.loadMoreSessionsBtn.disabled = true;
+  if (reset) {
+    state.sessions.queryKey = queryKey;
+    state.sessions.items = [];
+    state.sessions.nextCursor = null;
+    state.sessions.exhausted = false;
+    state.sessions.repeatedCursors.clear();
+    renderSessions();
+  }
+
+  try {
+    const params = buildSessionParams(cursor, filters);
+    const data = await apiJson(`/api/v1/model-logs/sessions?${params}`, { signal: controller.signal });
+    if (!isCurrentSlot('sessions', generation)) return;
+    state.sessions.responseInfo = {
+      query: params.toString(), responseKeys: Object.keys(data), returnedItems: (data.items || []).length,
+      pagination: Object.fromEntries(['next_cursor', 'has_more', 'total', 'total_count', 'limit', 'offset', 'page', 'page_size', 'next_page'].filter(key => Object.hasOwn(data, key)).map(key => [key, data[key]]))
+    };
+    if (cursor != null) state.sessions.repeatedCursors.add(String(cursor));
+    const byId = new Map(state.sessions.items.map(item => [String(item.session_id), item]));
+    for (const item of data.items || []) byId.set(String(item.session_id), item);
+    state.sessions.items = [...byId.values()];
+    state.defaultEntries = null;
+    const next = data.next_cursor ?? null;
+    if (next != null && state.sessions.repeatedCursors.has(String(next))) {
+      state.sessions.nextCursor = null;
+      state.sessions.exhausted = true;
+      toast('Session pagination stopped: repeated cursor.', 'error');
+    } else {
+      state.sessions.nextCursor = next;
+      state.sessions.exhausted = next == null;
+    }
+    renderSessions();
+    setConnectionStatus('Connected', 'ok');
+    state.connection.connected = true;
+    updateControlStates();
+  } catch (error) {
+    if (error?.name !== 'AbortError') {
+      showPrimaryError(error, () => loadSessions({ reset }));
+      if (!state.connection.connected) setConnectionStatus('Connection failed', 'error');
+    }
+    throw error;
+  } finally {
+    if (isCurrentSlot('sessions', generation)) {
+      state.sessions.loading = false;
+      els.loadMoreSessionsBtn.disabled = state.sessions.exhausted;
+      renderSessionsMeta();
+    }
+  }
+}
+
+function visibleSessions() {
+  const needle = els.sessionSearch.value.trim().toLowerCase();
+  const runs = entrySelectionData(state.sessions.items.map(item => ({ ...item, ts: item.created_at })), { ...state.dashboard, level: '' }).matching;
+  if (!needle) return runs;
+  return runs.filter(session => [
+    session.display_name, session.model_id, session.session_id, session.status,
+    session.stop_reason, session.container_name
+  ].some(value => String(value || '').toLowerCase().includes(needle)));
+}
+
+function element(tag, className = '', text = '') {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== '') node.textContent = text;
+  return node;
+}
+
+function renderSessions() {
+  const items = visibleSessions();
+  els.sessionList.replaceChildren();
+  if (!items.length) {
+    const empty = element('div', 'empty-state');
+    const inner = element('div');
+    inner.append(element('strong', '', (state.sessions.loading ? 'Loading recorded runs…' : 'No matching runs')));
+    inner.append(element('span', '', (state.sessions.items.length ? 'Clear the sidebar search or change session filters.' : 'No sessions were returned for these filters.')));
+    empty.append(inner);
+    els.sessionList.append(empty);
+    renderSessionsMeta();
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  for (const session of items) {
+    const id = String(session.session_id || '');
+    const card = element('button', `session-card ${session.session_type === 'service' ? 'service' : ''} ${state.sessions.selectedId === id ? 'selected' : ''}`.trim());
+    card.type = 'button';
+    card.dataset.sessionId = id;
+    card.title = id;
+
+    const name = element('div', 'session-name', session.display_name || session.model_id || id);
+    const meta = element('div', 'session-meta');
+    meta.append(element('span', `badge ${session.session_type === 'service' ? 'service' : ''}`, session.session_type || 'model'));
+    meta.append(element('span', `badge ${String(session.status || '').toLowerCase()}`, session.status || 'unknown'));
+    meta.append(element('span', '', formatLocalTimestamp(session.created_at)));
+
+    const foot = element('div', 'session-foot');
+    const reason = element('span', 'session-reason', `${Number(session.line_count || 0).toLocaleString()} lines · ${formatBytes(session.size_bytes)}${session.stop_reason ? ` · ${session.stop_reason}` : ''}`);
+    const shortId = element('span', '', id ? id.slice(0, 8) : '—');
+    foot.append(reason, shortId);
+    card.append(name, meta, foot);
+    fragment.append(card);
+  }
+  els.sessionList.append(fragment);
+  renderSessionsMeta();
+}
+
+
+function dashboardData(sessions, entries) {
+  return {
+    sessions: sessions.length,
+    running: sessions.filter(item => item.status === 'running').length,
+    models: new Set(sessions.map(item => item.model_id).filter(Boolean)).size
+  };
+}
+
+function resetDashboardNavigation() {
+  Object.assign(state.dashboard, { month: '', day: '', hour: '', model: '', level: '', page: 0 });
+}
+
+function entrySelectionData(entries, selection) {
+  const months = new Map(), days = new Map(), hours = new Map(), models = new Map(), levels = new Map();
+  const matching = [];
+  for (const item of entries) {
+    const date = new Date(item.ts);
+    const valid = Number.isFinite(date.getTime());
+    const month = valid ? `${date.getFullYear()}-${pad2(date.getMonth() + 1)}` : 'unknown';
+    const day = valid ? `${month}-${pad2(date.getDate())}` : 'unknown';
+    months.set(month, (months.get(month) || 0) + 1);
+    if (selection.month && selection.month !== month) continue;
+    days.set(day, (days.get(day) || 0) + 1);
+    if (selection.day && selection.day !== day) continue;
+    const hour = valid ? pad2(date.getHours()) : 'unknown';
+    hours.set(hour, (hours.get(hour) || 0) + 1);
+    if (selection.hour && selection.hour !== hour) continue;
+    // Prefix IDs so a missing model stays distinct from the All models option.
+    const model = item.model_id ? `id:${item.model_id}` : 'unknown';
+    models.set(model, (models.get(model) || 0) + 1);
+    if (selection.model && selection.model !== model) continue;
+    const level = String(item.level || 'unknown').toLowerCase();
+    levels.set(level, (levels.get(level) || 0) + 1);
+    if (selection.level && selection.level !== level) continue;
+    matching.push(item);
+  }
+  return { months, days, hours, models, levels, matching };
+}
+
+function loadedDateRange(entries) {
+  let oldest = Infinity, newest = -Infinity;
+  for (const item of entries) {
+    const time = Date.parse(item.ts);
+    if (!Number.isFinite(time)) continue;
+    oldest = Math.min(oldest, time);
+    newest = Math.max(newest, time);
+  }
+  return Number.isFinite(oldest) ? { oldest: new Date(oldest).toISOString(), newest: new Date(newest).toISOString() } : null;
+}
+
+async function loadOlderHistory() {
+  if (state.historyRun) { state.historyRun = null; renderDashboard(); return; }
+  if (state.entries.loading || state.entries.exhausted || state.entries.capped || state.entries.nextCursor == null) return;
+  const run = {};
+  state.historyRun = run;
+  try {
+    while (state.historyRun === run && !state.entries.exhausted && !state.entries.capped && state.entries.nextCursor != null) {
+      const previousCount = state.entries.items.length;
+      await loadEntryPage({ reset: false });
+      if (state.entries.items.length <= previousCount) break;
+    }
+  } catch (error) {
+    if (error?.name !== 'AbortError') showPrimaryError(error);
+  } finally {
+    if (state.historyRun === run) state.historyRun = null;
+    renderDashboard();
+  }
+}
+
+function modelPieData(sessions, selection, filters = {}) {
+  // Keep other models visible while one model is selected, so it can be changed.
+  const runs = sessions.map(item => ({ ...item, ts: item.created_at || item.ts }));
+  const inPeriod = runs.filter(item => {
+    const time = Date.parse(item.ts);
+    return (!filters.startTs || time >= Date.parse(filters.startTs)) && (!filters.endTs || time <= Date.parse(filters.endTs));
+  });
+  const items = entrySelectionData(inPeriod, { ...selection, model: '', level: '' }).matching;
+  const counts = new Map();
+  for (const item of items) {
+    const key = item.model_id ? `id:${item.model_id}` : 'unknown';
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  return { total: items.length, range: loadedDateRange(items), rows: [...counts].sort((a, b) => b[1] - a[1]) };
+}
+
+function pieSlicePath(start, fraction) {
+  const point = angle => [100 + 90 * Math.cos(angle), 100 + 90 * Math.sin(angle)];
+  const [x1, y1] = point(start), [x2, y2] = point(start + fraction * 2 * Math.PI);
+  return `M 100 100 L ${x1} ${y1} A 90 90 0 ${fraction > 0.5 ? 1 : 0} 1 ${x2} ${y2} Z`;
+}
+
+function selectPieModel(key) {
+  state.dashboard.model = state.dashboard.model === key ? '' : key;
+  state.dashboard.page = 0;
+  renderSessions();
+}
+
+function renderModelPie() {
+  const runs = state.mode === 'sessions' && state.sessions.selectedId
+    ? state.sessions.items.filter(item => String(item.session_id) === state.sessions.selectedId)
+    : state.sessions.items;
+  const data = modelPieData(runs, state.dashboard, state.filters || {});
+  const container = $('modelPie'), legend = $('modelPieLegend');
+  container.replaceChildren(); legend.replaceChildren();
+  $('modelPieClearBtn').disabled = !state.dashboard.model && !state.sessions.selectedId && !state.filters?.modelId;
+  $('modelPieScope').textContent = `${state.mode === 'sessions' && state.sessions.selectedId ? `Selected run ${state.sessions.selectedId.slice(0, 8)}` : 'All recorded runs'} · ${data.total.toLocaleString()} recorded runs${data.range ? ` · ${new Date(data.range.oldest).toLocaleString()} – ${new Date(data.range.newest).toLocaleString()}` : ''}${!state.sessions.exhausted ? ' · session list may be partial' : ''}. Uses the date query and month/day/hour selections.`;
+  if (!data.total) { container.append(element('p', 'dashboard-note', 'No entries in this period.')); return; }
+  renderPieChart(data, container, legend, state.dashboard.model, selectPieModel,
+    key => key === 'unknown' ? 'Unknown model' : key.slice(3), 'runs', 'Model share of recorded runs');
+}
+
+function renderPieChart(data, container, legend, selected, onSelect, labelFor, unit, chartLabel) {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '0 0 200 200');
+  svg.setAttribute('role', 'group');
+  svg.setAttribute('aria-label', chartLabel);
+  const colors = ['#b5a0e8', '#6bc9b3', '#e5b66f', '#ed8f9f', '#79b8ed', '#d4a2d8', '#b9cb78', '#d99570'];
+  let angle = -Math.PI / 2;
+  data.rows.forEach(([key, count], index) => {
+    const fraction = count / data.total;
+    const label = `${labelFor(key)} · ${count.toLocaleString()} ${unit} · ${(fraction * 100).toFixed(1)}%`;
+    const color = index < colors.length ? colors[index] : `hsl(${index * 137.5 % 360} 55% 68%)`;
+    const slice = document.createElementNS(ns, data.rows.length === 1 ? 'circle' : 'path');
+    if (data.rows.length === 1) {
+      for (const [name, value] of [['cx', '100'], ['cy', '100'], ['r', '90']]) slice.setAttribute(name, value);
+    } else slice.setAttribute('d', pieSlicePath(angle, fraction));
+    angle += fraction * Math.PI * 2;
+    slice.setAttribute('fill', color);
+    slice.setAttribute('tabindex', '0');
+    slice.setAttribute('role', 'button');
+    slice.setAttribute('aria-label', label);
+    slice.setAttribute('aria-pressed', String(selected === key));
+    const title = document.createElementNS(ns, 'title'); title.textContent = label; slice.append(title);
+    slice.addEventListener('click', () => onSelect(key));
+    slice.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(key); }
+    });
+    svg.append(slice);
+    const button = element('button', 'btn small model-legend-item');
+    button.type = 'button';
+    button.setAttribute('aria-pressed', String(selected === key));
+    const swatch = element('span', 'model-swatch'); swatch.style.background = color;
+    button.append(swatch, element('span', '', label));
+    button.addEventListener('click', () => onSelect(key));
+    legend.append(button);
+  });
+  container.append(svg);
+}
+
+function levelPieData(entries, selection) {
+  const items = entrySelectionData(entries, { ...selection, level: '' }).matching;
+  const counts = new Map();
+  for (const item of items) {
+    const level = String(item.level || 'unknown').toLowerCase();
+    counts.set(level, (counts.get(level) || 0) + 1);
+  }
+  return { total: items.length, rows: [...counts].sort((a, b) => b[1] - a[1]) };
+}
+
+function selectPieLevel(level) {
+  state.dashboard.level = state.dashboard.level === level ? '' : level;
+  state.dashboard.page = 0;
+  renderDashboard();
+}
+
+function renderLevelPie() {
+  const data = levelPieData(state.entries.items, state.dashboard);
+  const container = $('levelPie'), legend = $('levelPieLegend');
+  container.replaceChildren(); legend.replaceChildren();
+  $('levelPieClearBtn').disabled = !state.dashboard.level;
+  $('levelPieScope').textContent = `${data.total.toLocaleString()} loaded entries${state.entries.capped || !state.entries.exhausted ? ' · partial results' : ''}`;
+  if (!data.total) { container.append(element('p', 'dashboard-note', 'No loaded entries in this selection.')); return; }
+  renderPieChart(data, container, legend, state.dashboard.level, selectPieLevel, key => key, 'entries', 'Log level distribution');
+}
+
+function dashboardSelectionData(entries, sessions, selection) {
+  const groups = entrySelectionData(entries, selection);
+  const runs = entrySelectionData(sessions.map(item => ({ ...item, ts: item.created_at })), { ...selection, level: '' });
+  for (const dimension of ['months', 'days', 'hours', 'models']) {
+    for (const key of runs[dimension].keys()) if (!groups[dimension].has(key)) groups[dimension].set(key, 0);
+  }
+  return groups;
+}
+
+function dataLoadingText(current) {
+  const count = current.entries.items.length.toLocaleString();
+  if (current.sessions.loading) return 'Loading recorded sessions…';
+  if (current.historyRun) return `Loading older history… ${count} entries loaded. More results may still appear.`;
+  if (current.entries.loading) return `Loading log entries… ${count} entries loaded. Filters and charts are still updating.`;
+  return '';
+}
+
+function renderDashboard() {
+  const loadingText = dataLoadingText(state);
+  $('dataLoadingStatus').hidden = !loadingText;
+  $('dataLoadingText').textContent = loadingText;
+  $('dashboardCards').setAttribute('aria-busy', String(Boolean(loadingText)));
+  $('entrySelection').setAttribute('aria-busy', String(Boolean(loadingText)));
+  const data = dashboardData(state.sessions.items, state.entries.items);
+  const range = loadedDateRange(state.entries.items);
+  const request = state.entries.responseInfo;
+  $('deviceQueryInfo').textContent = request ? `${request.url} · ${request.returnedItems} entries returned${request.returnedRange ? ` · ${request.returnedRange.oldest} to ${request.returnedRange.newest}` : ''}` : 'No log request yet.';
+  const historyButton = $('loadHistoryBtn');
+  historyButton.textContent = state.historyRun ? 'Stop loading history' : 'Load older history';
+  historyButton.disabled = !state.historyRun && (!state.connection.connected || state.entries.loading || state.entries.exhausted || state.entries.capped || state.entries.nextCursor == null);
+  $('dashboardScope').textContent = `${state.sessions.items.length.toLocaleString()} sessions loaded${state.sessions.exhausted ? '' : ' · session list may be partial'}; ${state.entries.items.length.toLocaleString()} log entries loaded${state.entries.capped ? ' · browser limit reached' : state.entries.exhausted ? ' · end of current query' : ' · log results may be partial'}. ${range ? `Loaded dates: ${new Date(range.oldest).toLocaleString()} – ${new Date(range.newest).toLocaleString()}. ` : ''}${state.entries.capped ? 'History is incomplete at the 100,000-entry browser limit; narrow the query dates to inspect earlier periods.' : state.entries.exhausted ? 'The API returned no more entries for this query.' : 'Date and model choices include loaded run history. Entries load one page at a time.'} Current query filters apply; Clear reloads unfiltered results.`;
+  const modelOptions = $('queryModels');
+  modelOptions.replaceChildren();
+  for (const model of [...new Set([...state.sessions.items, ...state.entries.items].map(item => item.model_id).filter(Boolean))].sort()) {
+    const option = element('option'); option.value = model; modelOptions.append(option);
+  }
+  const cards = $('dashboardCards');
+  cards.replaceChildren();
+  for (const [label, count] of [['Loaded sessions', data.sessions], ['Running sessions (loaded)', data.running], ['Log entries (loaded)', state.entries.items.length], ['Models in loaded sessions', data.models]]) {
+    const card = element('div', 'dashboard-card');
+    card.append(element('strong', '', count.toLocaleString()), element('span', '', label));
+    cards.append(card);
+  }
+  const selection = state.dashboard;
+  let groups = dashboardSelectionData(state.entries.items, state.sessions.items, selection);
+  // Clear unavailable selections and their dependent columns after a query change.
+  const dimensions = [['month', 'months'], ['day', 'days'], ['hour', 'hours'], ['model', 'models'], ['level', 'levels']];
+  for (let index = 0; index < dimensions.length; index++) {
+    const [key, group] = dimensions[index];
+    const knownRunModel = key === 'model' && state.sessions.items.some(item => (item.model_id ? `id:${item.model_id}` : 'unknown') === selection.model);
+    if (selection[key] && !groups[group].has(selection[key]) && !knownRunModel) {
+      for (const [dependent] of dimensions.slice(index)) selection[dependent] = '';
+      selection.page = 0;
+      groups = dashboardSelectionData(state.entries.items, state.sessions.items, selection);
+    }
+  }
+  renderModelPie();
+  renderLevelPie();
+  const options = (id, rows, allLabel, value, label) => {
+    const select = $(id);
+    select.replaceChildren();
+    const all = element('option', '', allLabel);
+    all.value = '';
+    select.append(all);
+    for (const [key, count] of [...rows].sort(([a], [b]) => a.localeCompare(b))) {
+      const option = element('option', '', `${label(key)}${count ? ` · ${count.toLocaleString()}` : ''}`);
+      option.value = key;
+      select.append(option);
+    }
+    select.value = value;
+  };
+  options('monthSelection', groups.months, 'All months', selection.month, key => key === 'unknown' ? 'Unknown date' : new Date(`${key}-01T12:00:00`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }));
+  options('daySelection', groups.days, 'All days', selection.day, key => key === 'unknown' ? 'Unknown date' : new Date(`${key}T12:00:00`).toLocaleDateString());
+  options('hourSelection', groups.hours, 'All hours', selection.hour, key => key === 'unknown' ? 'Unknown hour' : `${key}:00–${key}:59`);
+  options('levelSelection', groups.levels, 'All levels', selection.level, key => key);
+  const modelRows = new Map(groups.models);
+  for (const run of state.sessions.items) {
+    const key = run.model_id ? `id:${run.model_id}` : 'unknown';
+    if (!modelRows.has(key)) modelRows.set(key, 0);
+  }
+  options('modelSelection', modelRows, 'All models', selection.model, key => key === 'unknown' ? 'Unknown model' : key.slice(3));
+  const pageSize = 200;
+  selection.page = Math.min(selection.page, Math.max(0, Math.ceil(groups.matching.length / pageSize) - 1));
+  const start = selection.page * pageSize;
+  const select = $('entrySelection');
+  select.replaceChildren();
+  for (const item of groups.matching.slice(start, start + pageSize)) {
+    const option = element('option', '', `${formatLocalTimestamp(item.ts)} · ${item.level || 'unknown'} · ${item.message || item.event || '(empty)'}`);
+    option.value = String(item.id);
+    option.title = option.textContent;
+    select.append(option);
+  }
+  select.value = state.entries.selectedId || '';
+  $('entrySelectionCount').textContent = groups.matching.length ? `${start + 1}–${Math.min(start + pageSize, groups.matching.length)} of ${groups.matching.length.toLocaleString()} matching entries` : 'No matching loaded entries';
+  $('entrySelectionPrevious').disabled = selection.page === 0;
+  $('entrySelectionNext').disabled = start + pageSize >= groups.matching.length;
+}
+
+function renderSessionsMeta() {
+  renderDashboard();
+  const shown = visibleSessions().length;
+  const loaded = state.sessions.items.length;
+  els.sessionsCount.textContent = `${loaded.toLocaleString()} ${'loaded'}`;
+  if (state.sessions.loading) els.sessionsFooterText.textContent = 'Loading runs…';
+  else if (shown !== loaded) els.sessionsFooterText.textContent = `${shown.toLocaleString()} ${'shown'} · ${loaded.toLocaleString()} ${'loaded'}`;
+  else els.sessionsFooterText.textContent = `${loaded.toLocaleString()} ${(state.sessions.exhausted ? 'runs · API reports no more' : 'runs · more available')}`;
+  els.loadMoreSessionsBtn.textContent = state.sessions.loading ? 'Loading runs…' : state.sessions.exhausted ? 'Refresh runs' : 'Load more runs';
+  els.loadMoreSessionsBtn.title = state.sessions.exhausted ? 'The API returned no next page. Refresh the list to check for new runs.' : 'Fetch the next page of recorded runs.';
+  els.loadMoreSessionsBtn.disabled = state.sessions.loading || !state.connection.connected;
+}
+
+function selectedSession() {
+  return state.sessions.items.find(item => String(item.session_id) === state.sessions.selectedId) || null;
+}
+
+function clearEntryFilters() {
+  resetDashboardNavigation();
+  for (const name of ['keyword', 'source', 'level', 'event', 'startTs', 'endTs', 'quickRange']) {
+    els[name].value = '';
+  }
+  markEntryFiltersDirty();
+}
+
+async function fetchRecordedRunEntries(sessions, filters, signal, onPage) {
+  let pending = sessions.map(session => ({ id: session.session_id, cursor: null, seen: new Set() }));
+  // Visit each run before requesting its next page, so busy models do not crowd out others.
+  while (pending.length) {
+    const next = [];
+    for (const run of pending) {
+      if (signal.aborted) throw signal.reason;
+      const params = buildEntryParams(filters, run.cursor);
+      params.set('limit', '500');
+      const path = `/api/v1/model-logs/sessions/${encodeURIComponent(run.id)}/entries?${params}`;
+      const data = await apiJson(path, { signal });
+      if (signal.aborted) throw signal.reason;
+      if (onPage(data.items || []) === false) return false;
+      const cursor = data.next_cursor;
+      if (cursor != null) {
+        if (run.seen.has(String(cursor)) || !(data.items || []).length) throw new Error('Recorded-run pagination did not advance.');
+        run.seen.add(String(cursor));
+        next.push({ ...run, cursor });
+      }
+    }
+    pending = next;
+  }
+  return true;
+}
+
+async function loadRecordedRunEntries() {
+  const filters = validateFilters(readFilters());
+  state.filters = Object.freeze({ ...filters });
+  resetEntries(entryQueryKey(filters));
+  const { controller, generation } = beginSlot('recordedEntries');
+  state.entries.loading = true;
+  renderEntryState();
+  try {
+    const complete = await fetchRecordedRunEntries([...state.sessions.items], filters, controller.signal, items => {
+      if (!isCurrentSlot('recordedEntries', generation)) return false;
+      mergeEntryPage(items);
+      renderEntryState();
+      return !state.entries.capped;
+    });
+    if (!isCurrentSlot('recordedEntries', generation)) return;
+    state.entries.items.sort((a, b) => Date.parse(b.ts) - Date.parse(a.ts));
+    state.entries.nextCursor = null;
+    state.entries.exhausted = complete;
+    state.entryFiltersDirty = false;
+    updateDirtyState();
+    persistPreferences();
+    const unfiltered = !['q', 'modelId', 'sessionId', 'sessionType', 'source', 'level', 'event', 'startTs', 'endTs'].some(key => filters[key]);
+    if (unfiltered) state.defaultEntries = { items: [...state.entries.items], nextCursor: null, exhausted: complete, capped: state.entries.capped, filters };
+  } finally {
+    if (isCurrentSlot('recordedEntries', generation)) {
+      state.entries.loading = false;
+      renderEntryState();
+    }
+  }
+}
+
+function restoreDefaultEntries() {
+  const saved = state.defaultEntries;
+  if (!saved) return false;
+  state.filters = Object.freeze({ ...saved.filters });
+  resetEntries(entryQueryKey(state.filters));
+  state.entries.items = [...saved.items];
+  state.entries.ids = new Set(saved.items.map(item => String(item.id)));
+  state.entries.nextCursor = saved.nextCursor;
+  state.entries.exhausted = saved.exhausted;
+  state.entries.capped = Boolean(saved.capped);
+  state.entryFiltersDirty = false;
+  updateDirtyState();
+  renderEntryState();
+  return true;
+}
+
+async function showAllSessions() {
+  stopLive();
+  state.historyRun = null;
+  state.sessions.selectedId = null;
+  clearFilters();
+  setMode('timeline', { runQuery: false });
+  renderSessions();
+  if (state.connection.connected && !restoreDefaultEntries()) await loadRecordedRunEntries();
+}
+
+async function showAllModels() {
+  stopLive();
+  state.historyRun = null;
+  state.dashboard.model = '';
+  state.dashboard.page = 0;
+  els.modelFilter.value = '';
+  const needsQuery = state.mode !== 'timeline' || Boolean(state.filters?.modelId);
+  state.sessions.selectedId = null;
+  setMode('timeline', { runQuery: false });
+  renderSessions();
+  if (needsQuery && state.connection.connected) {
+    const filters = readFilters();
+    const narrowed = ['q', 'modelId', 'sessionId', 'sessionType', 'source', 'level', 'event', 'startTs', 'endTs'].some(key => filters[key]);
+    if (narrowed) await startEntryQuery();
+    else if (!restoreDefaultEntries()) await loadRecordedRunEntries();
+  } else renderDashboard();
+}
+
+async function selectSession(sessionId) {
+  // Chart drill-downs belong to their current session, not the next selected run.
+  clearEntryFilters();
+  els.modelFilter.value = '';
+  els.timelineSessionFilter.value = '';
+  state.sessions.selectedId = String(sessionId);
+  setMode('sessions', { runQuery: false });
+  renderSessions();
+  try {
+    await startEntryQuery();
+  } catch (error) {
+    if (error?.name !== 'AbortError') showPrimaryError(error, () => selectSession(sessionId));
+  }
+}
+
+function entryQueryKey(filters) {
+  return JSON.stringify({
+    root: state.connection.baseUrl,
+    mode: state.mode,
+    session: state.mode === 'sessions' ? state.sessions.selectedId : filters.sessionId,
+    filters: {
+      q: filters.q, modelId: filters.modelId, sessionType: filters.sessionType,
+      source: filters.source, level: filters.level, event: filters.event,
+      startTs: filters.startTs, endTs: filters.endTs,
+      order: state.mode === 'sessions' ? filters.order : 'desc'
+    }
+  });
+}
+
+function invalidateVirtual() {
+  state.virtual.start = -1;
+  state.virtual.end = -1;
+}
+
+function resetEntries(queryKey) {
+  abortSlot('recordedEntries');
+  state.historyRun = null;
+  abortSlot('entries');
+  abortSlot('live');
+  clearTimeout(state.live.timer);
+  state.live.timer = 0;
+  state.live.running = false;
+  if (state.live.enabled) setLiveButton(false);
+  state.entries.responseInfo = null;
+  state.entries.items = [];
+  state.entries.ids = new Set();
+  state.entries.nextCursor = null;
+  state.entries.loading = false;
+  state.entries.exhausted = false;
+  state.entries.queryKey = queryKey;
+  state.entries.selectedId = null;
+  state.entries.newCount = 0;
+  state.entries.repeatedCursors.clear();
+  state.entries.capped = false;
+  els.resultsViewport.scrollTop = 0;
+  invalidateVirtual();
+  closeDetails();
+  renderEntryState();
+}
+
+function currentEntryPath(filters, cursor = null) {
+  if (state.mode === 'timeline') {
+    return `/api/v1/model-logs/timeline?${buildTimelineParams(filters, cursor)}`;
+  }
+  if (!state.sessions.selectedId) throw new Error('Select a recorded run first.');
+  return `/api/v1/model-logs/sessions/${encodeURIComponent(state.sessions.selectedId)}/entries?${buildEntryParams(filters, cursor)}`;
+}
+
+async function startEntryQuery() {
+  if (!state.connection.connected) throw new Error('Connect to the service first.');
+  if (state.mode === 'sessions' && !state.sessions.selectedId) {
+    resetEntries('');
+    updateModeContext();
+    return;
+  }
+  const filters = validateFilters(readFilters());
+  state.filters = Object.freeze({ ...filters });
+  state.entryFiltersDirty = false;
+  updateDirtyState();
+  persistPreferences();
+  const queryKey = entryQueryKey(filters);
+  resetEntries(queryKey);
+  hidePrimaryError();
+  await loadEntryPage({ reset: true });
+}
+
+function mergeEntryPage(items, placement = 'append') {
+  const fresh = [];
+  for (const item of items || []) {
+    const id = String(item?.id ?? '');
+    if (!id || state.entries.ids.has(id)) continue;
+    if (state.entries.items.length + fresh.length >= MAX_ENTRIES) {
+      state.entries.capped = true;
+      break;
+    }
+    state.entries.ids.add(id);
+    fresh.push(item);
+  }
+  if (fresh.length) {
+    state.entries.items = placement === 'prepend'
+      ? [...fresh, ...state.entries.items]
+      : [...state.entries.items, ...fresh];
+    invalidateVirtual();
+  }
+  return fresh.length;
+}
+
+async function loadEntryPage({ reset = false } = {}) {
+  if (state.entries.loading || state.entries.capped) return;
+  if (!reset && (state.entries.exhausted || state.entries.nextCursor == null)) return;
+  const filters = state.filters || validateFilters(readFilters());
+  const cursor = reset ? null : state.entries.nextCursor;
+  const cursorKey = cursor == null ? null : String(cursor);
+  if (cursorKey && state.entries.repeatedCursors.has(cursorKey)) {
+    state.entries.exhausted = true;
+    showPrimaryError(new Error('Pagination stopped because the service repeated a cursor.'), () => startEntryQuery());
+    renderEntryState();
+    return;
+  }
+
+  const { controller, generation } = beginSlot('entries');
+  state.entries.loading = true;
+  renderEntryState();
+  try {
+    const path = currentEntryPath(filters, cursor);
+    const data = await apiJson(path, { signal: controller.signal });
+    if (!isCurrentSlot('entries', generation) || state.entries.queryKey !== entryQueryKey(filters)) return;
+    state.entries.responseInfo = {
+      url: state.connection.baseUrl + path, returnedItems: (data.items || []).length,
+      returnedRange: loadedDateRange(data.items || []), nextCursor: data.next_cursor ?? null
+    };
+    if (cursorKey) state.entries.repeatedCursors.add(cursorKey);
+    const added = mergeEntryPage(data.items || [], 'append');
+    const next = data.next_cursor ?? null;
+    if (next != null && state.entries.repeatedCursors.has(String(next))) {
+      state.entries.nextCursor = null;
+      state.entries.exhausted = true;
+      showPrimaryError(new Error('Pagination stopped because the backend returned a previously used cursor.'), () => startEntryQuery());
+    } else if (!added && next != null) {
+      state.entries.nextCursor = null;
+      state.entries.exhausted = true;
+      showPrimaryError(new Error('Pagination stopped because a page contained no new entry IDs.'), () => startEntryQuery());
+    } else {
+      state.entries.nextCursor = next;
+      state.entries.exhausted = next == null;
+    }
+    if (state.entries.capped) {
+      state.entries.exhausted = true;
+      state.entries.nextCursor = null;
+      toast(`${MAX_ENTRIES.toLocaleString()} ${'entry browser limit reached. Narrow filters or export all results.'}`, 'error');
+    }
+    renderEntryState();
+  } catch (error) {
+    if (error?.name !== 'AbortError') showPrimaryError(error, () => loadEntryPage({ reset }));
+    throw error;
+  } finally {
+    if (isCurrentSlot('entries', generation)) {
+      state.entries.loading = false;
+      renderEntryState();
+    }
+  }
+}
+
+function loadMoreEntries() {
+  return loadEntryPage({ reset: false }).catch(() => {});
+}
+
+function renderEntryState() {
+  renderDashboard();
+  $('showAllSessionEntriesBtn').hidden = state.entries.loading || state.mode !== 'sessions' || !state.sessions.selectedId || state.entries.items.length > 0;
+  const count = state.entries.items.length;
+  const hasItems = count > 0;
+  const raw = state.view === 'raw';
+  els.emptyState.hidden = hasItems;
+  els.virtualStage.hidden = !hasItems || raw;
+  els.rawStage.hidden = !hasItems || !raw;
+  els.columnHead.hidden = raw;
+  els.resultsViewport.classList.toggle('raw', raw);
+  els.loadFooter.hidden = !hasItems;
+  els.virtualStage.style.height = `${count * state.virtual.rowHeight}px`;
+  els.viewModeBtn.textContent = (raw ? 'Table' : 'Full text');
+  els.loadMoreEntriesBtn.disabled = state.entries.loading || state.entries.exhausted || state.entries.capped;
+  els.loadMoreEntriesBtn.textContent = (state.entries.loading
+    ? 'Loading…'
+    : state.entries.capped
+      ? 'Browser limit reached'
+      : state.entries.exhausted
+        ? 'End of results'
+        : state.mode === 'timeline' || state.filters?.order === 'desc'
+          ? 'Load older entries'
+          : 'Load newer entries');
+
+  if (!hasItems) {
+    const strong = els.emptyState.querySelector('strong');
+    const span = els.emptyState.querySelector('span');
+    if (state.entries.loading) {
+      strong.textContent = 'Loading logs…';
+      span.textContent = 'The current results remain stable until the query completes.';
+    } else if (state.mode === 'sessions' && !state.sessions.selectedId) {
+      strong.textContent = 'Select a recorded run';
+      span.textContent = 'Old service runs remain available in the left pane after a restart.';
+    } else if (state.entries.queryKey) {
+      strong.textContent = 'No matching log entries';
+      span.textContent = 'Widen the time range or clear one of the exact filters.';
+    } else {
+      strong.textContent = 'No logs loaded';
+      span.textContent = 'Select a session or switch to Timeline, then apply the query.';
+    }
+  }
+
+  let summary = `${count.toLocaleString()} ${'entries loaded'}`;
+  if (state.entries.loading) summary += ` · ${'loading'}`;
+  else if (state.entries.capped) summary += ` · ${'browser cap reached · export remains complete'}`;
+  else if (state.entries.exhausted) summary += ` · ${'end of results'}`;
+  else if (state.entries.nextCursor != null) summary += ` · ${'more available'}`;
+  if (state.live.enabled) summary += state.live.failures ? ` · ${'Live retry'} ${state.live.failures}` : ` · ${'Live'}`;
+  els.resultsSummary.textContent = summary;
+  els.newEntriesBtn.hidden = state.entries.newCount === 0;
+  els.newEntriesBtn.textContent = `${'Show'} ${state.entries.newCount.toLocaleString()} ${'new'}`;
+  if (raw) renderRawText();
+  else renderVirtualRows();
+  updateControlStates();
+}
+
+// ponytail: full text renders every loaded entry into one <pre>, no virtualization.
+// RAW_MAX keeps the DOM sane on huge sessions; raise it if a real case needs more.
+const RAW_MAX = 20000;
+
+function renderRawText() {
+  const items = state.entries.items;
+  const descending = state.mode === 'timeline' || state.filters?.order === 'desc';
+  const shown = items.length > RAW_MAX ? items.slice(0, RAW_MAX) : items;
+  const fragment = document.createDocumentFragment();
+  if (shown.length !== items.length) {
+    fragment.append(element('span', 'raw-head warning',
+      `${(descending ? 'showing the newest' : 'showing the oldest')} ${shown.length.toLocaleString()} / ${items.length.toLocaleString()} ${'entries in full text view'}\n`));
+  }
+  for (const item of shown) {
+    const id = String(item.id);
+    const level = String(item.level || 'info').toLowerCase();
+    const head = [
+      formatLocalTimestamp(item.ts),
+      level.toUpperCase(),
+      item.source || '-',
+      item.event || '-',
+      item.model_id || ''
+    ].filter(Boolean).join('  ');
+    fragment.append(element('span', `raw-head ${level}`, `${head}\n`));
+
+    let body = String(item.message ?? '');
+    if (item.message_truncated) body += `\n… [truncated preview — ${'Raw NDJSON'}]`;
+    if (item.details !== undefined) {
+      body += `\n${typeof item.details === 'string' ? item.details : JSON.stringify(item.details, null, 2)}`;
+    }
+    // ponytail: no data-entry-id here on purpose — raw text must stay selectable without opening details.
+    fragment.append(element('span', `raw-body ${state.entries.selectedId === id ? 'selected' : ''}`.trim(), `${body}\n`));
+  }
+  els.rawStage.replaceChildren(fragment);
+}
+
+function queueVirtualRender() {
+  if (state.virtual.raf) return;
+  state.virtual.raf = requestAnimationFrame(() => {
+    state.virtual.raf = 0;
+    renderVirtualRows();
+  });
+}
+
+function renderVirtualRows() {
+  if (state.view === 'raw') return;
+  const items = state.entries.items;
+  if (!items.length) {
+    els.virtualRows.replaceChildren();
+    return;
+  }
+  const { rowHeight, overscan } = state.virtual;
+  const start = Math.max(0, Math.floor(els.resultsViewport.scrollTop / rowHeight) - overscan);
+  const visible = Math.ceil(els.resultsViewport.clientHeight / rowHeight) + overscan * 2;
+  const end = Math.min(items.length, start + visible);
+  if (start === state.virtual.start && end === state.virtual.end && els.virtualRows.childElementCount) return;
+  state.virtual.start = start;
+  state.virtual.end = end;
+  const fragment = document.createDocumentFragment();
+
+  for (let index = start; index < end; index++) {
+    const item = items[index];
+    const id = String(item.id);
+    const level = String(item.level || 'info').toLowerCase();
+    const source = String(item.source || '');
+    const row = element('div', `log-row level-${level} source-${source} ${state.entries.selectedId === id ? 'selected' : ''}`.trim());
+    row.dataset.entryId = id;
+    row.dataset.index = String(index);
+    row.style.transform = `translateY(${index * rowHeight}px)`;
+    row.tabIndex = 0;
+    row.setAttribute('role', 'button');
+    row.setAttribute('aria-label', `${formatLocalTimestamp(item.ts)} ${level} ${item.event || ''} ${item.message || ''}`);
+
+    const cells = [
+      ['log-cell cell-time', formatLocalTimestamp(item.ts), item.ts || ''],
+      ['log-cell cell-model', item.model_id || '—', item.model_id || ''],
+      ['log-cell cell-source', source || '—', source],
+      [`log-cell cell-level ${level}`, level, level],
+      ['log-cell cell-event', item.event || '—', item.event || ''],
+      ['log-cell cell-message', item.message || '', item.message || '']
+    ];
+    for (const [className, text, title] of cells) {
+      const cell = element('span', className, text);
+      if (title) cell.title = title;
+      row.append(cell);
+    }
+    fragment.append(row);
+  }
+  els.virtualRows.replaceChildren(fragment);
+}
+
+async function openEntryDetails(entryId) {
+  const id = String(entryId);
+  const item = state.entries.items.find(entry => String(entry.id) === id);
+  if (!item) return;
+  state.entries.selectedId = id;
+  els.detailsContent.replaceChildren();
+
+  if (item.message_truncated) {
+    const warning = element('div', 'warning-box', (
+      item._rawLoadFailed
+        ? 'Unable to load the complete record.'
+        : 'This indexed message is truncated at the backend preview limit. Loading the complete original line…'
+    ));
+    els.detailsContent.append(warning);
+  }
+
+  const fields = [
+    ['Local time', formatLocalTimestamp(item.ts), ''],
+    ['Original timestamp (UTC)', item.ts || '—', 'mono'],
+    ['Entry / file line', `${item.id ?? '—'} / ${item.file_line_number ?? '—'}`, 'mono'],
+    ['Model', item.model_id || '—', 'mono'],
+    ['Session', item.session_id || '—', 'mono'],
+    ['Source / stream / level', `${item.source || '—'} / ${item.stream || '—'} / ${item.level || '—'}`, 'mono'],
+    ['Event', item.event || '—', 'mono']
+  ];
+  for (const [label, value, extra] of fields) {
+    const section = element('section', 'detail-section');
+    section.append(element('div', 'detail-label', label), element('div', `detail-value ${extra}`.trim(), value));
+    els.detailsContent.append(section);
+  }
+
+  const messageSection = element('section', 'detail-section');
+  messageSection.append(element('div', 'detail-label', 'Message'));
+  const message = element('pre', 'detail-pre');
+  message.textContent = item.message || '';
+  messageSection.append(message);
+  els.detailsContent.append(messageSection);
+
+  if (item.details !== undefined) {
+    const detailsSection = element('section', 'detail-section');
+    detailsSection.append(element('div', 'detail-label', 'Details'));
+    const details = element('pre', 'detail-pre');
+    details.textContent = typeof item.details === 'string' ? item.details : JSON.stringify(item.details, null, 2);
+    detailsSection.append(details);
+    els.detailsContent.append(detailsSection);
+  }
+
+  els.detailsPane.hidden = false;
+  els.workspace.classList.add('details-open');
+  invalidateVirtual();
+  renderVirtualRows();
+
+  if (item.message_truncated && !item._rawLoading && !item._rawLoadFailed) {
+    item._rawLoading = true;
+    try {
+      const record = await apiJson(
+        `/api/v1/model-logs/sessions/${encodeURIComponent(item.session_id)}/entries/${encodeURIComponent(item.file_line_number)}/raw`
+      );
+      if (state.entries.selectedId !== id) return;
+      Object.assign(item, record, { message_truncated: false, _rawLoading: false });
+      toast('Complete record loaded.');
+      await openEntryDetails(id);
+    } catch (error) {
+      item._rawLoading = false;
+      item._rawLoadFailed = true;
+      if (state.entries.selectedId === id) {
+        await openEntryDetails(id);
+        showPrimaryError(error, () => {
+          item._rawLoadFailed = false;
+          openEntryDetails(id);
+        });
+      }
+    }
+  }
+}
+
+function closeDetails() {
+  state.entries.selectedId = null;
+  els.detailsPane.hidden = true;
+  els.workspace.classList.remove('details-open');
+  els.detailsContent.replaceChildren();
+  invalidateVirtual();
+  renderVirtualRows();
+}
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (_) {
+    const area = document.createElement('textarea');
+    area.value = text;
+    area.style.position = 'fixed';
+    area.style.opacity = '0';
+    document.body.append(area);
+    area.select();
+    document.execCommand('copy');
+    area.remove();
+  }
+  toast('Copied to clipboard.');
+}
+
+function setLiveButton(enabled) {
+  state.live.enabled = enabled;
+  els.liveBtn.classList.toggle('live-on', enabled);
+  els.liveBtn.setAttribute('aria-pressed', String(enabled));
+  els.liveBtn.textContent = (enabled ? 'Live on' : 'Live off');
+  renderEntryState();
+}
+
+async function setLive(enabled) {
+  if (!enabled) {
+    stopLive('Live disabled');
+    return;
+  }
+  if (!state.connection.connected) return toast('Connect before enabling Live.', 'error');
+  if (state.mode === 'sessions' && !state.sessions.selectedId) return toast('Select a session before enabling Live.', 'error');
+  if (state.mode === 'sessions' && els.order.value !== 'desc') {
+    els.order.value = 'desc';
+    markEntryFiltersDirty();
+  }
+  if (state.entryFiltersDirty || !state.entries.queryKey) {
+    try { await startEntryQuery(); } catch (_) { return; }
+  }
+  setLiveButton(true);
+  state.live.failures = 0;
+  scheduleLive(0);
+}
+
+function stopLive(reason = '') {
+  clearTimeout(state.live.timer);
+  state.live.timer = 0;
+  state.live.running = false;
+  abortSlot('live');
+  if (state.live.enabled) setLiveButton(false);
+  if (reason && reason !== 'Live disabled') toast(reason);
+}
+
+function scheduleLive(delayMs) {
+  if (!state.live.enabled) return;
+  clearTimeout(state.live.timer);
+  state.live.timer = setTimeout(pollLive, Math.max(0, delayMs));
+}
+
+async function pollLive() {
+  if (!state.live.enabled || state.live.running || !state.filters) return;
+  state.live.running = true;
+  const filters = state.filters;
+  const queryKey = state.entries.queryKey;
+  const { controller, generation } = beginSlot('live');
+  const atNewestEdge = els.resultsViewport.scrollTop <= state.virtual.rowHeight * 2;
+  const anchorIndex = Math.floor(els.resultsViewport.scrollTop / state.virtual.rowHeight);
+  const anchorId = state.entries.items[anchorIndex]?.id;
+  const anchorOffset = els.resultsViewport.scrollTop - anchorIndex * state.virtual.rowHeight;
+
+  try {
+    const collected = [];
+    const collectedIds = new Set();
+    const usedCursors = new Set();
+    let cursor = null;
+    let pages = 0;
+    let reachedKnownEntry = false;
+
+    while (!reachedKnownEntry) {
+      if (pages >= LIVE_MAX_PAGES || collected.length + state.entries.items.length >= MAX_ENTRIES) {
+        const gapError = new Error('Live burst exceeded the safe catch-up limit. Refresh the query to rebuild a continuous cursor chain.');
+        gapError.code = 'LIVE_GAP';
+        throw gapError;
+      }
+      const cursorKey = cursor == null ? null : String(cursor);
+      if (cursorKey && usedCursors.has(cursorKey)) throw new Error('Live catch-up stopped because the backend repeated a cursor.');
+      if (cursorKey) usedCursors.add(cursorKey);
+      const data = await apiJson(currentEntryPath(filters, cursor), { signal: controller.signal, retries: 0 });
+      if (!isCurrentSlot('live', generation) || !state.live.enabled || state.entries.queryKey !== queryKey) return;
+      pages += 1;
+
+      for (const item of data.items || []) {
+        const id = String(item?.id ?? '');
+        if (!id) continue;
+        if (state.entries.ids.has(id)) {
+          reachedKnownEntry = true;
+          break;
+        }
+        if (!collectedIds.has(id)) {
+          collectedIds.add(id);
+          collected.push(item);
+        }
+      }
+
+      const next = data.next_cursor ?? null;
+      if (reachedKnownEntry || next == null) break;
+      cursor = next;
+    }
+
+    const added = mergeEntryPage(collected, 'prepend');
+    let restoreScrollTop = null;
+    if (added) {
+      if (atNewestEdge) {
+        restoreScrollTop = 0;
+        state.entries.newCount = 0;
+      } else {
+        const newAnchorIndex = state.entries.items.findIndex(item => String(item.id) === String(anchorId));
+        if (newAnchorIndex >= 0) restoreScrollTop = newAnchorIndex * state.virtual.rowHeight + anchorOffset;
+        state.entries.newCount += added;
+      }
+    }
+    state.live.failures = 0;
+    renderEntryState();
+    if (restoreScrollTop != null) {
+      els.resultsViewport.scrollTop = restoreScrollTop;
+      invalidateVirtual();
+      renderVirtualRows();
+    }
+    scheduleLive(document.hidden ? 10000 : 2000);
+  } catch (error) {
+    if (error?.name === 'AbortError') return;
+    state.live.failures += 1;
+    if (error?.code === 'LIVE_GAP') {
+      showPrimaryError(error, () => startEntryQuery());
+      stopLive('Live stopped to prevent a gap in the displayed timeline.');
+      return;
+    }
+    if (error instanceof ApiError && [401, 403].includes(error.status)) {
+      showPrimaryError(error, null);
+      stopLive('Live stopped because authorization failed.');
+      return;
+    }
+    const backoff = Math.min(2000 * (2 ** Math.max(0, state.live.failures - 1)), 30000);
+    els.resultsSummary.textContent = `${state.entries.items.length.toLocaleString()} ${'entries loaded'} · ${'Live retry in'} ${Math.round(backoff / 1000)}s · ${describeError(error)}`;
+    scheduleLive(document.hidden ? Math.max(backoff, 10000) : backoff);
+  } finally {
+    if (isCurrentSlot('live', generation)) state.live.running = false;
+  }
+}
+
+function showNewEntries() {
+  state.entries.newCount = 0;
+  els.resultsViewport.scrollTop = 0;
+  renderEntryState();
+}
+
+function entryToNdjson(entry) {
+  return JSON.stringify(entry) + '\n';
+}
+
+const CSV_HEADER = 'id,ts,model_id,session_id,source,level,stream,event,message,message_truncated,file_line_number,details\r\n';
+function entryToCsv(entry) {
+  return [
+    entry.id, entry.ts, entry.model_id, entry.session_id, entry.source, entry.level,
+    entry.stream, entry.event, entry.message, entry.message_truncated,
+    entry.file_line_number, entry.details
+  ].map(csvCell).join(',') + '\r\n';
+}
+
+async function createExportWriter(filename, mimeType, operation = 'export') {
+  if (typeof window.showSaveFilePicker === 'function' && window.isSecureContext && new URLSearchParams(location.search).get('integration') !== '1') {
+    const handle = await window.showSaveFilePicker({
+      suggestedName: filename,
+      types: [{ description: mimeType, accept: { [mimeType]: [filename.endsWith('.csv') ? '.csv' : '.ndjson'] } }]
+    });
+    const writable = await handle.createWritable();
+    return {
+      async write(chunk) { await writable.write(chunk); },
+      async close() { await writable.close(); },
+      async abort() { try { await writable.abort(); } catch (_) {} }
+    };
+  }
+
+  const chunks = [];
+  let bytes = 0;
+  let confirmedLarge = false;
+  const encoder = new TextEncoder();
+  return {
+    async write(chunk) {
+      const size = typeof chunk === 'string' ? encoder.encode(chunk).byteLength : chunk.byteLength;
+      bytes += size;
+      if (!confirmedLarge && bytes > 100 * 1024 * 1024) {
+        confirmedLarge = true;
+        if (!confirm(`This browser cannot stream directly to disk. More than 100 MiB is buffered in memory. Continue ${operation}?`)) {
+          throw new DOMException(`${operation} cancelled`, 'AbortError');
+        }
+      }
+      chunks.push(chunk);
+    },
+    async close() {
+      if (new URLSearchParams(location.search).get('integration') === '1') {
+        chunks.length = 0;
+        return;
+      }
+      const blob = new Blob(chunks, { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    },
+    async abort() { chunks.length = 0; }
+  };
+}
+
+function exportSnapshot() {
+  if (!state.filters) throw new Error('Run a query before exporting.');
+  return {
+    baseUrl: state.connection.baseUrl,
+    token: state.connection.token,
+    mode: state.mode,
+    sessionId: state.sessions.selectedId,
+    filters: { ...state.filters }
+  };
+}
+
+function exportPath(snapshot, cursor) {
+  if (snapshot.mode === 'timeline') {
+    return `/api/v1/model-logs/timeline?${buildTimelineParams(snapshot.filters, cursor)}`;
+  }
+  if (!snapshot.sessionId) throw new Error('Select a session before exporting.');
+  return `/api/v1/model-logs/sessions/${encodeURIComponent(snapshot.sessionId)}/entries?${buildEntryParams(snapshot.filters, cursor)}`;
+}
+
+async function startExport(format) {
+  if (state.export.running) return;
+  const snapshot = exportSnapshot();
+  const controller = new AbortController();
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const isCsv = format === 'csv';
+  const filename = `tiiny-model-logs-${stamp}.${isCsv ? 'csv' : 'ndjson'}`;
+  const mimeType = isCsv ? 'text/csv' : 'application/x-ndjson';
+  let writer;
+  state.export = { running: true, controller, count: 0, startedAt: performance.now() };
+  els.exportStrip.hidden = false;
+  els.exportText.textContent = `${'Preparing'} ${format.toUpperCase()} ${'export…'}`;
+  updateControlStates();
+
+  try {
+    writer = await createExportWriter(filename, mimeType);
+    if (isCsv) await writer.write(CSV_HEADER);
+    let cursor = null;
+    const usedCursors = new Set();
+    const seenIds = new Set();
+    let page = 0;
+
+    while (true) {
+      if (controller.signal.aborted) throw controller.signal.reason || new DOMException('Export cancelled', 'AbortError');
+      const cursorKey = cursor == null ? null : String(cursor);
+      if (cursorKey && usedCursors.has(cursorKey)) throw new Error('Export stopped because the service repeated a cursor.');
+      if (cursorKey) usedCursors.add(cursorKey);
+      page += 1;
+      const data = await apiJson(exportPath(snapshot, cursor), {
+        signal: controller.signal, timeoutMs: 60000, retries: 2,
+        baseUrl: snapshot.baseUrl, token: snapshot.token
+      });
+      const fresh = [];
+      for (const entry of data.items || []) {
+        const id = String(entry.id ?? '');
+        if (!id || seenIds.has(id)) continue;
+        seenIds.add(id);
+        fresh.push(entry);
+      }
+      if (!fresh.length && data.next_cursor != null) throw new Error('Export stopped because a page contained no new entry IDs.');
+      const chunk = fresh.map(isCsv ? entryToCsv : entryToNdjson).join('');
+      if (chunk) await writer.write(chunk);
+      state.export.count += fresh.length;
+      const elapsed = Math.max(1, (performance.now() - state.export.startedAt) / 1000);
+      els.exportText.textContent = `${format.toUpperCase()} · ${'page'} ${page} · ${state.export.count.toLocaleString()} ${'entries'} · ${Math.round(state.export.count / elapsed).toLocaleString()}/s`;
+      cursor = data.next_cursor ?? null;
+      if (cursor == null) break;
+    }
+    await writer.close();
+    toast(`${'Exported'} ${state.export.count.toLocaleString()} ${'entries'}.`);
+  } catch (error) {
+    if (writer) await writer.abort();
+    if (error?.name === 'AbortError') toast('Export cancelled.');
+    else showPrimaryError(error, () => startExport(format));
+  } finally {
+    state.export.running = false;
+    state.export.controller = null;
+    els.exportStrip.hidden = true;
+    updateControlStates();
+  }
+}
+
+function cancelExport() {
+  state.export.controller?.abort(new DOMException('Export cancelled', 'AbortError'));
+}
+
+async function downloadRaw() {
+  if (state.raw.running) return cancelRaw();
+  const session = selectedSession();
+  if (!session) return toast('Select a session first.', 'error');
+  const { controller } = beginSlot('raw-download');
+  const filename = `${session.session_id}.ndjson`;
+  let writer;
+  state.raw = { running: true, controller, bytes: 0 };
+  updateControlStates();
+
+  try {
+    writer = await createExportWriter(filename, 'application/x-ndjson', 'download');
+    await apiResponse(`/api/v1/model-logs/sessions/${encodeURIComponent(session.session_id)}/raw?download=true`, {
+      signal: controller.signal,
+      timeoutMs: 10 * 60 * 1000,
+      retries: 0,
+      consume: async response => {
+        if (!response.body) {
+          const chunk = new Uint8Array(await response.arrayBuffer());
+          state.raw.bytes += chunk.byteLength;
+          await writer.write(chunk);
+          return;
+        }
+        const reader = response.body.getReader();
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            state.raw.bytes += value.byteLength;
+            await writer.write(value);
+            els.downloadRawBtn.textContent = `${'Cancel raw'} · ${formatBytes(state.raw.bytes)}`;
+          }
+        } catch (error) {
+          try { await reader.cancel(error); } catch (_) {}
+          throw error;
+        } finally {
+          reader.releaseLock();
+        }
+      }
+    });
+    await writer.close();
+    writer = null;
+    toast(`${'Downloaded'} ${formatBytes(state.raw.bytes)} ${'of raw logs for'} ${String(session.session_id).slice(0, 8)}.`);
+  } catch (error) {
+    if (writer) await writer.abort();
+    if (error?.name === 'AbortError') toast('Raw download cancelled.');
+    else showPrimaryError(error, downloadRaw);
+  } finally {
+    state.raw.running = false;
+    state.raw.controller = null;
+    abortSlot('raw-download');
+    updateControlStates();
+  }
+}
+
+function cancelRaw() {
+  state.raw.controller?.abort(new DOMException('Raw download cancelled', 'AbortError'));
+}
+
+function updateModeContext() {
+  if (state.mode === 'timeline') {
+    els.modeContext.textContent = 'All sessions · newest-first timeline across recorded runs.';
+  } else {
+    const session = selectedSession();
+    els.modeContext.textContent = session
+      ? `${session.display_name || session.model_id} · ${session.status || 'unknown'} · ${session.session_id}`
+      : 'Select a recorded run to inspect its logs.';
+  }
+}
+
+function updateControlStates() {
+  const connected = state.connection.connected;
+  const canQuery = connected && (state.mode === 'timeline' || Boolean(state.sessions.selectedId));
+  els.refreshBtn.disabled = !connected;
+  $('allSessionsBtn').disabled = !connected;
+  $('allSessionsBtn').setAttribute('aria-pressed', String(state.mode === 'timeline' && !state.sessions.selectedId));
+  els.applyFiltersBtn.disabled = !canQuery;
+  $('historyApplyBtn').disabled = !canQuery;
+  $('historyClearBtn').disabled = !canQuery;
+  els.liveBtn.disabled = !canQuery || state.export.running;
+  els.downloadRawBtn.disabled = state.raw.running
+    ? false
+    : !connected || state.mode !== 'sessions' || !state.sessions.selectedId;
+  els.downloadRawBtn.textContent = state.raw.running
+    ? `${'Cancel raw'} · ${formatBytes(state.raw.bytes)}`
+    : 'Raw NDJSON';
+  els.exportNdjsonBtn.disabled = !canQuery || !state.filters || state.export.running;
+  els.exportCsvBtn.disabled = !canQuery || !state.filters || state.export.running;
+  els.cancelExportBtn.disabled = !state.export.running;
+  els.order.disabled = state.mode === 'timeline' || state.live.enabled;
+  els.timelineSessionFilter.disabled = state.mode !== 'timeline';
+}
+
+function setMode(mode, { runQuery = true } = {}) {
+  const next = mode === 'timeline' || !state.sessions.selectedId ? 'timeline' : 'sessions';
+  if (next !== state.mode && runQuery && state.connection.connected) {
+    try {
+      validateFilters(readFilters());
+    } catch (error) {
+      showPrimaryError(error, null);
+      return false;
+    }
+  }
+  if (next !== state.mode) {
+    stopLive();
+    state.mode = next;
+    markEntryFiltersDirty();
+  }
+  els.sessionsTab.classList.toggle('active', next === 'sessions');
+  els.timelineTab.classList.toggle('active', next === 'timeline');
+  els.sessionsTab.setAttribute('aria-selected', String(next === 'sessions'));
+  els.timelineTab.setAttribute('aria-selected', String(next === 'timeline'));
+  updateModeContext();
+  updateControlStates();
+  persistPreferences();
+  if (runQuery && state.connection.connected && (next === 'timeline' || state.sessions.selectedId)) {
+    startEntryQuery().catch(error => {
+      if (error?.name !== 'AbortError') showPrimaryError(error, () => setMode(next));
+    });
+  } else {
+    renderEntryState();
+  }
+  return true;
+}
+
+async function searchHistory() {
+  // History search is defined by the four visible controls, across all runs.
+  try {
+    validateFilters(readFilters());
+    if (!state.connection.connected) throw new Error('Connect to the service first.');
+    stopLive();
+    for (const name of ['keyword', 'source', 'event', 'timelineSessionFilter', 'sessionType']) els[name].value = '';
+    els.quickRange.value = '';
+    state.sessions.selectedId = null;
+    resetDashboardNavigation();
+    setMode('timeline', { runQuery: false });
+    renderSessions();
+    await startEntryQuery();
+    // Load older pages only when the user explicitly requests them.
+  } catch (error) {
+    if (error?.name !== 'AbortError') showPrimaryError(error, searchHistory);
+  }
+}
+
+async function applyFilters() {
+  hidePrimaryError();
+  try {
+    validateFilters(readFilters());
+    persistPreferences();
+    await Promise.allSettled([
+      loadSessions({ reset: true }),
+      (state.mode === 'timeline' || state.sessions.selectedId) ? startEntryQuery() : Promise.resolve()
+    ]);
+  } catch (error) {
+    showPrimaryError(error, applyFilters);
+  }
+}
+
+async function connect() {
+  resetDashboardNavigation();
+  state.defaultEntries = null;
+  hidePrimaryError();
+  stopLive();
+  abortAllRequests();
+  state.sessions.selectedId = null;
+  setMode('timeline', { runQuery: false });
+  state.sessions.items = [];
+  state.sessions.nextCursor = null;
+  state.sessions.exhausted = false;
+  state.sessions.queryKey = '';
+  state.sessions.repeatedCursors.clear();
+  state.filters = null;
+  state.entryFiltersDirty = false;
+  state.sessionFiltersDirty = false;
+  resetEntries('');
+  renderSessions();
+  updateModeContext();
+  updateDirtyState();
+  state.connection.connected = false;
+  setConnectionStatus('Connecting…', 'loading');
+  els.connectBtn.disabled = true;
+  updateControlStates();
+
+  try {
+    state.connection.baseUrl = normalizeBaseUrl(els.baseUrl.value);
+    state.connection.token = currentToken();
+    persistPreferences();
+    await loadSessions({ reset: true });
+    if (state.mode === 'timeline') await loadRecordedRunEntries();
+  } catch (error) {
+    if (error?.name !== 'AbortError') {
+      setConnectionStatus('Connection failed', 'error');
+      showPrimaryError(error, connect);
+    }
+  } finally {
+    els.connectBtn.disabled = false;
+    updateControlStates();
+  }
+}
+
+async function refreshRunHistory(reset) {
+  await loadSessions({ reset });
+  const filters = readFilters();
+  const unfiltered = !['q', 'modelId', 'sessionId', 'sessionType', 'source', 'level', 'event', 'startTs', 'endTs'].some(key => filters[key]);
+  if (state.mode === 'timeline' && unfiltered) await loadRecordedRunEntries();
+}
+
+async function refreshCurrent() {
+  hidePrimaryError();
+  await refreshRunHistory(true);
+  if (state.mode !== 'timeline' || !state.defaultEntries) await startEntryQuery();
+}
+
+function copyDiagnostics() {
+  const error = state.lastError;
+  const diagnostics = {
+    at: new Date().toISOString(),
+    baseUrl: state.connection.baseUrl,
+    connected: state.connection.connected,
+    mode: state.mode,
+    selectedSession: state.sessions.selectedId,
+    queryKey: state.entries.queryKey,
+    loadedEntries: state.entries.items.length,
+    entryFilters: state.filters,
+    entryHistory: { lastDeviceResponse: state.entries.responseInfo, range: loadedDateRange(state.entries.items), nextCursor: state.entries.nextCursor, exhausted: state.entries.exhausted, capped: state.entries.capped },
+    sessions: {
+      loaded: state.sessions.items.length, exhausted: state.sessions.exhausted,
+      response: state.sessions.responseInfo,
+      sidebarSearch: els.sessionSearch.value
+    },
+    error: error ? {
+      name: error.name, message: error.message, status: error.status || 0,
+      endpoint: error.endpoint || '', code: error.code || '', detail: error.detail || ''
+    } : null
+  };
+  copyText(JSON.stringify(diagnostics, null, 2));
+}
+
+function initIntersectionObserver() {
+  const observer = new IntersectionObserver(entries => {
+    // Older pages are loaded explicitly through the history/results buttons.
+  }, { root: els.resultsViewport, rootMargin: '400px 0px' });
+  observer.observe(els.loadSentinel);
+}
+
+function installEvents() {
+  els.connectBtn.addEventListener('click', connect);
+  els.refreshBtn.addEventListener('click', () => refreshCurrent().catch(() => {}));
+  els.loadMoreSessionsBtn.addEventListener('click', () => refreshRunHistory(state.sessions.exhausted).catch(error => showPrimaryError(error)));
+  els.sessionSearch.addEventListener('input', renderSessions);
+  els.sessionList.addEventListener('click', event => {
+    const card = event.target.closest('[data-session-id]');
+    if (card) selectSession(card.dataset.sessionId).catch(() => {});
+  });
+  $('allSessionsBtn').addEventListener('click', () => showAllSessions().catch(error => showPrimaryError(error)));
+  els.sessionsTab.addEventListener('click', () => setMode('sessions'));
+  els.timelineTab.addEventListener('click', () => setMode('timeline'));
+  els.toggleFiltersBtn.addEventListener('click', () => {
+    els.filterPanel.hidden = !els.filterPanel.hidden;
+    els.toggleFiltersBtn.setAttribute('aria-expanded', String(!els.filterPanel.hidden));
+    persistPreferences();
+  });
+  els.clearFiltersBtn.addEventListener('click', () => { clearFilters(); applyFilters(); });
+  $('showAllSessionEntriesBtn').addEventListener('click', () => selectSession(state.sessions.selectedId));
+  els.applyFiltersBtn.addEventListener('click', applyFilters);
+  $('historyApplyBtn').addEventListener('click', searchHistory);
+  $('historyClearBtn').addEventListener('click', () => { clearFilters(); searchHistory(); });
+  for (const control of [els.startTs, els.endTs]) control.addEventListener('input', () => { els.quickRange.value = ''; });
+  els.quickRange.addEventListener('change', () => applyQuickRange(els.quickRange.value));
+  els.loadMoreEntriesBtn.addEventListener('click', loadMoreEntries);
+  els.viewModeBtn.addEventListener('click', () => {
+    state.view = state.view === 'raw' ? 'table' : 'raw';
+    invalidateVirtual();
+    renderEntryState();
+    persistPreferences();
+  });
+  els.resultsViewport.addEventListener('scroll', queueVirtualRender, { passive: true });
+  els.resultsViewport.addEventListener('click', event => {
+    const row = event.target.closest('[data-entry-id]');
+    if (row) openEntryDetails(row.dataset.entryId);
+  });
+  els.resultsViewport.addEventListener('keydown', event => {
+    const row = event.target.closest('[data-entry-id]');
+    if (row && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault();
+      openEntryDetails(row.dataset.entryId);
+    }
+  });
+  els.closeDetailsBtn.addEventListener('click', closeDetails);
+  els.copyEntryBtn.addEventListener('click', () => {
+    const item = state.entries.items.find(entry => String(entry.id) === state.entries.selectedId);
+    if (item) copyText(JSON.stringify(item, null, 2));
+  });
+  els.liveBtn.addEventListener('click', () => setLive(!state.live.enabled));
+  els.newEntriesBtn.addEventListener('click', showNewEntries);
+  els.downloadRawBtn.addEventListener('click', downloadRaw);
+  els.exportNdjsonBtn.addEventListener('click', () => startExport('ndjson'));
+  els.exportCsvBtn.addEventListener('click', () => startExport('csv'));
+  els.cancelExportBtn.addEventListener('click', cancelExport);
+  els.retryBtn.addEventListener('click', () => {
+    const retry = state.retryAction;
+    hidePrimaryError();
+    retry?.();
+  });
+  els.copyDiagnosticsBtn.addEventListener('click', copyDiagnostics);
+  $('levelPieClearBtn').addEventListener('click', () => { state.dashboard.level = ''; state.dashboard.page = 0; renderDashboard(); });
+  $('modelPieClearBtn').addEventListener('click', () => showAllModels().catch(error => showPrimaryError(error)));
+  $('loadHistoryBtn').addEventListener('click', loadOlderHistory);
+  $('dashboardResetBtn').addEventListener('click', () => { resetDashboardNavigation(); renderSessions(); });
+  for (const [id, key] of [['monthSelection', 'month'], ['daySelection', 'day'], ['hourSelection', 'hour'], ['modelSelection', 'model'], ['levelSelection', 'level']]) {
+    $(id).addEventListener('change', () => {
+      if (key === 'model' && !$(id).value) {
+        showAllModels().catch(error => showPrimaryError(error));
+        return;
+      }
+      state.dashboard[key] = $(id).value;
+      const order = ['month', 'day', 'hour', 'model', 'level'];
+      for (const dependent of order.slice(order.indexOf(key) + 1)) state.dashboard[dependent] = '';
+      state.dashboard.page = 0;
+      renderSessions();
+    });
+  }
+  $('entrySelection').addEventListener('change', () => openEntryDetails($('entrySelection').value).catch(error => showPrimaryError(error)));
+  for (const [id, change] of [['entrySelectionPrevious', -1], ['entrySelectionNext', 1]]) {
+    $(id).addEventListener('click', () => { state.dashboard.page += change; renderDashboard(); });
+  }
+  $('dashboardDiagnosticsBtn').addEventListener('click', copyDiagnostics);
+
+  const bindDirtyControls = (controls, handler) => {
+    for (const control of controls) {
+      control.addEventListener(control.tagName === 'SELECT' ? 'change' : 'input', handler);
+    }
+  };
+  bindDirtyControls([
+    els.keyword, els.timelineSessionFilter, els.source, els.level, els.event,
+    els.startTs, els.endTs, els.order
+  ], markEntryFiltersDirty);
+  bindDirtyControls([els.sessionStatus, els.serviceHistory], markSessionFiltersDirty);
+  bindDirtyControls([els.modelFilter, els.sessionType], markSharedFiltersDirty);
+
+  for (const control of [els.keyword, els.modelFilter, els.timelineSessionFilter, els.event, els.startTs, els.endTs]) {
+    control.addEventListener('keydown', event => {
+      if (event.key === 'Enter') {
+        if ([els.modelFilter, els.startTs, els.endTs].includes(control)) searchHistory();
+        else applyFilters();
+      }
+    });
+  }
+
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && !els.detailsPane.hidden) closeDetails();
+    if (event.key === '/' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) {
+      event.preventDefault();
+      els.keyword.focus();
+    }
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (state.live.enabled) scheduleLive(document.hidden ? 10000 : 250);
+  });
+
+  window.addEventListener('resize', queueVirtualRender, { passive: true });
+  window.addEventListener('beforeunload', () => {
+    abortAllRequests();
+    cancelExport();
+  });
+}
+
+async function runSelfTests() {
+  const failures = [];
+  const check = (name, condition) => { if (!condition) failures.push(name); };
+  try {
+    check('service root preserved', normalizeBaseUrl('http://192.168.2.231/') === 'http://192.168.2.231');
+    check('inference suffix removed', normalizeBaseUrl('http://192.168.2.231/v1/') === 'http://192.168.2.231');
+    check('API suffix removed', normalizeBaseUrl('http://192.168.2.231/api/v1') === 'http://192.168.2.231');
+    check('proxy prefix preserved', normalizeBaseUrl('https://example.com/tiiny/v1') === 'https://example.com/tiiny');
+    check('timeline page limit', buildTimelineParams({}).get('limit') === '1000');
+    check('entry page limit', buildEntryParams({ order: 'desc' }).get('limit') === '5000');
+    check('service history defaults all', buildSessionParams(null, { serviceHistory: 'all' }).get('service_history') === 'all');
+    check('csv comma quoted', csvCell('a,b') === '"a,b"');
+    check('csv quote doubled', csvCell('a"b') === '"a""b"');
+    check('csv formula neutralized', csvCell('=SUM(A1:A2)') === "'=SUM(A1:A2)");
+    check('local time converts', /Z$/.test(localInputToUtc('2026-07-15T12:00:00')));
+
+    hidePrimaryError();
+    showPrimaryError(new Error('first concurrent failure'));
+    showPrimaryError(new Error('second concurrent failure'));
+    check('concurrent primary error preserved', els.primaryErrorText.textContent === 'first concurrent failure');
+    check('concurrent secondary error visible', els.toastRegion.textContent.includes('Additional error: second concurrent failure'));
+    hidePrimaryError();
+    els.toastRegion.replaceChildren();
+
+    const saved = {
+      items: state.entries.items, ids: state.entries.ids, capped: state.entries.capped,
+      start: state.virtual.start, end: state.virtual.end, view: state.view,
+      mode: state.mode, filters: state.filters
+    };
+    state.view = 'table';
+    state.entries.items = [];
+    state.entries.ids = new Set();
+    state.entries.capped = false;
+    const first = mergeEntryPage([{ id: 3 }, { id: 2 }], 'append');
+    const second = mergeEntryPage([{ id: 4 }, { id: 3 }], 'prepend');
+    check('merge count', first === 2 && second === 1);
+    check('merge deduplicates', state.entries.items.map(item => item.id).join(',') === '4,3,2');
+
+    state.entries.items = Array.from({ length: 20000 }, (_, index) => ({
+      id: 20000 - index, ts: '2026-07-15T00:00:00+00:00', model_id: 'selftest',
+      source: 'service', level: 'info', event: 'selftest', message: `entry ${index}`
+    }));
+    state.entries.ids = new Set(state.entries.items.map(item => String(item.id)));
+    state.virtual.start = -1;
+    state.virtual.end = -1;
+    els.virtualStage.hidden = false;
+    els.virtualStage.style.height = `${state.entries.items.length * state.virtual.rowHeight}px`;
+    renderVirtualRows();
+    check('virtual rows bounded', els.virtualRows.childElementCount > 0 && els.virtualRows.childElementCount < 100);
+
+    state.entries.items = [
+      { id: 2, ts: '2026-07-15T00:00:00+00:00', source: 'container', level: 'error', event: 'boom', message: 'line one\nline two' },
+      { id: 1, ts: '2026-07-15T00:00:01+00:00', source: 'manager', level: 'info', event: 'ok', message: 'plain', details: { a: 1 } }
+    ];
+    state.entries.ids = new Set(['1', '2']);
+    state.view = 'raw';
+    renderEntryState();
+    check('raw view shows every entry', els.rawStage.childElementCount === 4 && !els.rawStage.hidden);
+    check('raw view keeps newlines', els.rawStage.textContent.includes('line one\nline two'));
+    check('raw view hides table', els.virtualStage.hidden && els.columnHead.hidden);
+    check('raw view keeps details', els.rawStage.textContent.includes('"a": 1'));
+    state.mode = 'timeline';
+    state.filters = { order: 'asc' };
+    check('raw timeline uses newest wording', (state.mode === 'timeline' || state.filters.order === 'desc' ? 'showing the newest' : 'showing the oldest') === 'showing the newest');
+    state.mode = 'sessions';
+    check('raw ascending session uses oldest wording', (state.mode === 'timeline' || state.filters.order === 'desc' ? 'showing the newest' : 'showing the oldest') === 'showing the oldest');
+    state.view = 'table';
+    renderEntryState();
+    check('table view restores', !els.virtualStage.hidden && els.rawStage.hidden && !els.columnHead.hidden);
+
+    const savedSessions = state.sessions.items;
+    state.sessions.items = Array.from({ length: 200 }, (_, index) => ({
+      session_id: `selftest-${index}`, model_id: `model-${index}`, status: 'stopped',
+      session_type: 'model', created_at: '2026-07-15T00:00:00+00:00', line_count: index, size_bytes: index
+    }));
+    renderSessions();
+    check('session pane stays inside workspace',
+      els.sessionsPane.getBoundingClientRect().height <= els.workspace.getBoundingClientRect().height + 1);
+    check('session list scrolls', els.sessionList.scrollHeight > els.sessionList.clientHeight + 1);
+    state.sessions.items = savedSessions;
+    renderSessions();
+
+    state.view = saved.view;
+    state.entries.items = saved.items;
+    state.entries.ids = saved.ids;
+    state.entries.capped = saved.capped;
+    state.virtual.start = saved.start;
+    state.virtual.end = saved.end;
+    state.mode = saved.mode;
+    state.filters = saved.filters;
+    renderEntryState();
+  } catch (error) {
+    failures.push(`unexpected error: ${error.stack || error}`);
+  }
+
+  const report = element('div', 'toast');
+  report.id = 'selfTestReport';
+  report.dataset.result = failures.length ? 'fail' : 'pass';
+  report.textContent = failures.length ? `SELFTEST FAIL: ${failures.join(' | ')}` : 'SELFTEST PASS';
+  report.style.position = 'fixed';
+  report.style.left = '12px';
+  report.style.bottom = '12px';
+  report.style.zIndex = '1000';
+  document.body.append(report);
+  return failures;
+}
+
+async function runIntegrationTests() {
+  const failures = [];
+  const check = (name, condition) => { if (!condition) failures.push(name); };
+  try {
+    await connect();
+    check('connected', state.connection.connected);
+    check('first session page', state.sessions.items.length === 2 && state.sessions.nextCursor != null);
+    await loadSessions({ reset: false });
+    check('session cursor page', state.sessions.items.length === 3 && state.sessions.exhausted);
+
+    state.sessions.selectedId = 'service-current';
+    await downloadRaw();
+    check('raw response streams', state.raw.bytes > 0 && !state.raw.running);
+
+    state.entries.items = [{ id: 'stale-entry' }];
+    state.entries.ids = new Set(['stale-entry']);
+    await connect();
+    check('reconnect clears stale selection', state.sessions.selectedId === null && !state.entries.ids.has('stale-entry'));
+
+    els.sessionStatus.value = '__delay';
+    const pendingSessions = loadSessions({ reset: true });
+    await delay(20);
+    els.sessionStatus.value = 'changed-after-request';
+    markSessionFiltersDirty();
+    await pendingSessions;
+    check('pending session query preserves newer dirty state', state.sessionFiltersDirty);
+    els.sessionStatus.value = '';
+    state.sessionFiltersDirty = false;
+    updateDirtyState();
+
+    setMode('timeline', { runQuery: false });
+    await startEntryQuery();
+    let guard = 0;
+    while (!state.entries.exhausted && guard++ < 8) {
+      if (state.entries.loading) await delay(20);
+      else await loadEntryPage({ reset: false });
+    }
+    check('timeline cursor pages', state.entries.items.length === 5 && state.entries.exhausted);
+    check('timeline IDs unique', new Set(state.entries.items.map(item => String(item.id))).size === state.entries.items.length);
+
+    setLiveButton(true);
+    await pollLive();
+    clearTimeout(state.live.timer);
+    state.live.timer = 0;
+    check('Live prepends new IDs', state.entries.items.slice(0, 2).map(item => item.id).join(',') === '102,101');
+    check('Live deduplicates overlap', state.entries.items.filter(item => item.id === 100).length === 1);
+    stopLive();
+
+    const extraEntries = Array.from({ length: 100 }, (_, index) => ({
+      id: `old-${index}`, ts: '2026-07-14T00:00:00+00:00', model_id: 'mock-old',
+      source: 'service', level: 'info', event: 'old', message: `old ${index}`
+    }));
+    mergeEntryPage(extraEntries, 'append');
+    renderEntryState();
+    els.resultsViewport.scrollTop = (state.entries.items.length - 1) * state.virtual.rowHeight;
+    const oldAnchorIndex = Math.min(state.entries.items.length - 1, Math.floor(els.resultsViewport.scrollTop / state.virtual.rowHeight));
+    const oldAnchorId = state.entries.items[oldAnchorIndex]?.id;
+    const oldAnchorOffset = els.resultsViewport.scrollTop - oldAnchorIndex * state.virtual.rowHeight;
+
+    const liveFilters = state.filters;
+    state.filters = Object.freeze({ ...liveFilters, q: '__live_burst' });
+    setLiveButton(true);
+    await pollLive();
+    clearTimeout(state.live.timer);
+    state.live.timer = 0;
+    check('Live follows burst cursors', state.entries.items.slice(0, 4).map(item => item.id).join(',') === '106,105,104,103');
+    const restoredAnchorIndex = state.entries.items.findIndex(item => String(item.id) === String(oldAnchorId));
+    const expectedAnchorScrollTop = restoredAnchorIndex * state.virtual.rowHeight + oldAnchorOffset;
+    check(`Live preserves scroll anchor (${els.resultsViewport.scrollTop} vs ${expectedAnchorScrollTop})`, Math.abs(els.resultsViewport.scrollTop - expectedAnchorScrollTop) < 1);
+    stopLive();
+    state.filters = liveFilters;
+
+    await startExport('csv');
+    check('export cursor pages', state.export.count === 5 && !state.export.running);
+
+    const savedFilters = state.filters;
+    state.filters = Object.freeze({ ...savedFilters, q: '__delay' });
+    const cancelledExport = startExport('ndjson');
+    cancelExport();
+    await cancelledExport;
+    check('export cancellation', state.export.count === 0 && !state.export.running);
+    state.filters = savedFilters;
+  } catch (error) {
+    failures.push(`unexpected error: ${error.stack || error}`);
+  }
+
+  const report = element('div', 'toast');
+  report.id = 'integrationTestReport';
+  report.dataset.result = failures.length ? 'fail' : 'pass';
+  report.textContent = failures.length ? `INTEGRATION FAIL: ${failures.join(' | ')}` : 'INTEGRATION PASS';
+  report.style.position = 'fixed';
+  report.style.left = '12px';
+  report.style.bottom = '52px';
+  report.style.zIndex = '1000';
+  document.body.append(report);
+  return failures;
+}
+
+async function init() {
+  restorePreferences();
+  const params = new URLSearchParams(location.search);
+  if (params.get('baseUrl')) {
+    els.baseUrl.value = params.get('baseUrl');
+    els.authToken.value = '';
+    state.connection.token = '';
+    safeStorage(sessionStorage, 'remove', TOKEN_KEY);
+  }
+  if (params.get('mode') === 'timeline') state.mode = 'timeline';
+  if (params.get('mode') === 'sessions') state.mode = 'sessions';
+  installEvents();
+  initIntersectionObserver();
+  setMode(state.mode, { runQuery: false });
+  els.timezoneNote.textContent = `Dates include whole days; rows use ${Intl.DateTimeFormat().resolvedOptions().timeZone || 'local timezone'}; queries are sent as UTC.`;
+  renderSessions();
+  renderEntryState();
+  updateControlStates();
+
+  if (params.get('selftest') === '1') await runSelfTests();
+  if (params.get('integration') === '1' && els.baseUrl.value) await runIntegrationTests();
+  else if (params.get('autoconnect') === '1' && els.baseUrl.value) await connect();
+}
+
+init().catch(error => showPrimaryError(error, init));
+</script>
+</body>
+</html>
